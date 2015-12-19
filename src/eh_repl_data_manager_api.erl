@@ -1,0 +1,44 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Copyright (c) 2015 Gyanendra Aggarwal.  All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-module(eh_repl_data_manager_api).
+
+-behavior(eh_repl_data_manager).
+
+-export([update/2,
+         query/1,
+         timestamp/0,
+         snapshot/2]).
+
+-include("erlang_htas.hrl").
+
+-spec update(Timestamp :: non_neg_integer(), Msg :: term()) -> ok.
+update(Timestamp, Msg) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_UPDATE, {Timestamp, Msg}}).
+
+-spec timestamp() -> non_neg_integer().
+timestamp() ->
+  gen_server:call(?EH_DATA_SERVER, ?EH_TIMESTAMP).
+
+-spec query(Msg :: term()) -> {atom(), term(), list()}.
+query(Msg) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_QUERY, Msg}).
+
+-spec snapshot(Timestamp :: non_neg_integer(), DataIndex ::  non_neg_integer()) -> queue:queue().
+snapshot(Timestamp, DataIndex) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_SNAPSHOT, {Timestamp, DataIndex}}).
