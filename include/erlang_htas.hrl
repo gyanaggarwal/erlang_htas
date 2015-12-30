@@ -97,7 +97,7 @@
 
 -record(eh_data_state,          {timestamp=0                 :: non_neg_integer(),
                                  data_index=0                :: non_neg_integer(),
-                                 data=queue:new()            :: queue:queue(),
+                                 data=maps:new()             :: maps:map(),
                                  file                        :: file:io_device(),
                                  app_config                  :: #eh_app_config{}}).
 

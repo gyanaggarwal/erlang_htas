@@ -36,30 +36,31 @@ close(File) ->
 -spec read(AppConfig :: #eh_app_config{}, File :: file:io_device()) ->  {ok | error, non_neg_integer(), non_neg_integer(), queue:queue()}.
 read(AppConfig, File) ->
   EntryOperation = eh_system_config:get_storage_data(AppConfig),
-  read(EntryOperation, File, 0, 0, 0, queue:new()).
+  read(EntryOperation, File, 0, 0, 0, maps:new()).
 
--spec read(EntryOperation :: atom(), File :: file:io_device(), Loc :: non_neg_integer(), Timestamp :: non_neg_integer(), DataIndex :: non_neg_integer(), Q0 :: queue:queue()) -> {ok | error, non_neg_integer(), non_neg_integer(), queue:queue()}.
-read(EntryOperation, File, Loc, Timestamp, DataIndex, Q0) ->
+-spec read(EntryOperation :: atom(), File :: file:io_device(), Loc :: non_neg_integer(), Timestamp :: non_neg_integer(), DataIndex :: non_neg_integer(), M0 :: maps:map()) 
+      -> {ok | error, non_neg_integer(), non_neg_integer(), maps:map()}.
+read(EntryOperation, File, Loc, Timestamp, DataIndex, M0) ->
   case eh_persist_storage_data:read_data(File, Loc, EntryOperation:header_byte_size()) of
     eof               -> 
-      {ok, Timestamp, DataIndex, Q0};
+      {ok, Timestamp, DataIndex, M0};
     {error, _}        -> 
-      {error, Timestamp, DataIndex, Q0};
+      {error, Timestamp, DataIndex, M0};
     {ok, Loc1, HData} ->
       DataSize =  EntryOperation:entry_header(HData),
       case eh_persist_storage_data:read_data(File, Loc1, DataSize) of
         eof               ->
           eh_persist_storage_data:truncate_data(File, Loc),
-          {error, Timestamp, DataIndex, Q0};
+          {error, Timestamp, DataIndex, M0};
         {error, _}        ->
-          {error, Timestamp, DataIndex, Q0};
+          {error, Timestamp, DataIndex, M0};
         {ok, Loc2, RData} ->
           case EntryOperation:binary_to_entry(HData, RData) of
             ?EH_BAD_DATA ->
               eh_persist_storage_data:truncate_data(File, Loc),
-              {error, Timestamp, DataIndex, Q0};
+              {error, Timestamp, DataIndex, M0};
             {ok, #eh_storage_data{timestamp=Timestamp2, data_index=DataIndex2}=Entry}  ->
-              read(EntryOperation, File, Loc2, Timestamp2, DataIndex2, queue:in(Entry, Q0))
+              read(EntryOperation, File, Loc2, Timestamp2, DataIndex2, eh_data_util:add_key_value(Entry, M0))
           end
       end
   end.
