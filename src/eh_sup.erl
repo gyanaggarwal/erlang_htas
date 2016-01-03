@@ -45,7 +45,7 @@ init([]) ->
            permanent, ChildShutdown, worker, [eh_data_server]},
  
   Childern        = [Htas, Event, Data],
-  RestartStrategy = {one_for_one, RestartIntensity, RestartPeriod},
+  RestartStrategy = {one_for_all, RestartIntensity, RestartPeriod},
 
   {ok, {RestartStrategy, Childern}}.
 

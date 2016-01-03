@@ -33,6 +33,10 @@
          get_pre_update_timestamp/1,
          make_list_to_string/2,
          exist_pre_update_msg/3,
+         valid_pre_update_message/2,
+         valid_update_message/2,
+         returned_message/2,
+         valid_add_node_message/2,
          reply/3]).
 
 -include("erlang_htas.hrl").
@@ -134,9 +138,74 @@ exist_pre_update_msg(ObjectType, ObjectId, Map) ->
       maps:size(ObjectMap) > 0
   end.
 
+valid_pre_update_message(#eh_update_msg{object_type=ObjectType, 
+                                        object_id=ObjectId, 
+                                        timestamp=Timestamp, 
+                                        client_id=ClientId, 
+                                        node_id=NodeId, 
+                                        reference=Ref}=UpdateMsg,
+                         #eh_system_state{pre_msg_data=PreMsgData, 
+                                          app_config=AppConfig}=State) ->
+  case returned_message(UpdateMsg, State) of
+    true  ->
+      {true, State};
+    false ->
+      case maps:find({ObjectType, ObjectId}, PreMsgData) of
+        error           ->
+          {true, State};
+        {ok, ObjectMap} ->
+          case  maps:find(Timestamp, ObjectMap) of
+            error           ->
+              {true, State};
+            {ok, #eh_update_msg{node_id=ENodeId, client_id=EClientId, reference=ERef}=EUpdateMsg} ->
+              case NodeId =:= ENodeId of
+                true  ->
+                  {false, State};
+                false ->
+                  ConflictResolver = eh_system_config:get_write_conflict_resolver(AppConfig),
+                  ResolvedNodeId = ConflictResolver:resolve(NodeId, ENodeId),
+                  case ResolvedNodeId =:= NodeId of
+                    true  ->
+                      NewPreMsgData = remove_pre_update_msg(EUpdateMsg, PreMsgData),
+                      NewState = State#eh_system_state{pre_msg_data=NewPreMsgData},
+                      reply(EClientId, ERef, {ENodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED}),
+                      {true, NewState};
+                    false ->
+                      reply(ClientId, Ref, {NodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED}),
+                      {false, State}
+                  end
+              end
+          end
+      end
+  end.
 
+valid_update_message(#eh_update_msg{timestamp=Timestamp}=UpdateMsg,
+                     #eh_system_state{msg_data=MsgData}=State) ->
+  case returned_message(UpdateMsg, State) of
+    true  ->
+      true;
+    false ->
+      case maps:find(Timestamp, MsgData) of
+        error   ->
+          true;
+        {ok, _} ->
+          false
+      end
+  end.
 
+returned_message(#eh_update_msg{node_id=MsgNodeId}, #eh_system_state{app_config=AppConfig}) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  NodeId =:= MsgNodeId.
 
+valid_add_node_message(Node, #eh_system_state{repl_ring=ReplRing, node_state=NodeState, app_config=AppConfig}) ->
+  case {eh_node_state:client_state(NodeState), Node =:= eh_system_config:get_node_id(AppConfig), lists:member(Node, ReplRing)} of
+    {?EH_STATE_TRANSIENT, true, _}   ->
+      ?EH_VALID_FOR_NEW;
+    {?EH_STATE_NORMAL, false, false} ->
+      ?EH_VALID_FOR_EXISTING;
+    {_, _, _}                        ->
+      ?EH_INVALID_MSG
+  end.
 
 
 

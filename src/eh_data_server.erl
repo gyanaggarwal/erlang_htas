@@ -38,17 +38,27 @@ init([AppConfig]) ->
   {ok, State}.
 
 handle_call(?EH_TIMESTAMP, _From, State) ->
-  {reply, State#eh_data_state.timestamp, State};
+  {reply, {State#eh_data_state.timestamp, State#eh_data_state.data_index}, State};
 handle_call({?EH_QUERY, {ObjectType, ObjectId}}, _From, #eh_data_state{data=Data}=State) ->
   Reply = eh_data_util:query_data(ObjectType, ObjectId, Data),
   {reply, {ObjectType, ObjectId, Reply}, State};
 handle_call({?EH_SNAPSHOT, {Timestamp, DataIndex}}, _From, #eh_data_state{data=Data}=State) ->
   Reply = eh_data_util:snapshot_data(Timestamp, DataIndex, Data),
   {reply, Reply, State};
-handle_call({?EH_UPDATE, {Timestamp, {ObjectType, ObjectId, Extra}}}, _From, #eh_data_state{file=File, data=Data, app_config=AppConfig}=State) ->
+handle_call({?EH_UPDATE, {?EH_STATE_TRANSIENT, Timestamp, {ObjectType, ObjectId, Extra}}}, _From, 
+            #eh_data_state{transient_timestamp=TTimestamp, transient_data=TData}=State) when Timestamp > TTimestamp ->
+  TData1 = eh_data_util:make_transient_data(ObjectType, ObjectId, Timestamp, Extra, TData),
+  {reply, ok, State#eh_data_state{transient_timestamp=Timestamp, transient_data=TData1}};
+handle_call({?EH_UPDATE, {?EH_STATE_TRANSIENT, _Timestamp, _}}, _From, State) ->
+  {reply, ok, State};
+handle_call({?EH_UPDATE, {?EH_STATE_NORMAL, Timestamp, {ObjectType, ObjectId, Extra}}}, _From, #eh_data_state{file=File, data=Data, app_config=AppConfig}=State) ->
   {DI0, Q0, D0} = eh_data_util:make_data(ObjectType, ObjectId, Timestamp, Extra, Data),
   ok = eh_storage_data_operation_api:write(AppConfig, File, Q0),
-  {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}}.
+  {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}};
+handle_call({?EH_UPDATE_SNAPSHOT, Q0}, _From, #eh_data_state{file=File, data=Data, transient_data=TData, app_config=AppConfig}=State) ->
+  {Timestamp, DI0, Q0, D0} = eh_data_util:merge_data(Q0, TData, Data),
+  ok = eh_storage_data_operation_api:write(AppConfig, File, Q0),
+  {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}}.  
 
 handle_cast(_Msg, State) ->
   {noreply, State}.

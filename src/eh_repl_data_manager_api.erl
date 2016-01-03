@@ -20,18 +20,19 @@
 
 -behavior(eh_repl_data_manager).
 
--export([update/2,
+-export([update/3,
          query/1,
          timestamp/0,
-         snapshot/2]).
+         snapshot/2,
+         update_snapshot/1]).
 
 -include("erlang_htas.hrl").
 
--spec update(Timestamp :: non_neg_integer(), Msg :: term()) -> ok.
-update(Timestamp, Msg) ->
-  gen_server:call(?EH_DATA_SERVER, {?EH_UPDATE, {Timestamp, Msg}}).
+-spec update(NodeState :: atom(), Timestamp :: non_neg_integer(), Msg :: term()) -> ok.
+update(NodeState, Timestamp, Msg) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_UPDATE, {NodeState, Timestamp, Msg}}).
 
--spec timestamp() -> non_neg_integer().
+-spec timestamp() -> {non_neg_integer(), non_neg_integer()}.
 timestamp() ->
   gen_server:call(?EH_DATA_SERVER, ?EH_TIMESTAMP).
 
@@ -42,3 +43,7 @@ query(Msg) ->
 -spec snapshot(Timestamp :: non_neg_integer(), DataIndex ::  non_neg_integer()) -> queue:queue().
 snapshot(Timestamp, DataIndex) ->
   gen_server:call(?EH_DATA_SERVER, {?EH_SNAPSHOT, {Timestamp, DataIndex}}).
+
+-spec update_snapshot(Q0 :: queue:queue()) -> ok.
+update_snapshot(Q0) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_UPDATE_SNAPSHOT, Q0}).

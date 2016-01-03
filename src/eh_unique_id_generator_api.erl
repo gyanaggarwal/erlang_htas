@@ -16,26 +16,13 @@
 %% under the License.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--module(eh_failure_detector_api).
+-module(eh_unique_id_generator_api).
 
--behavior(eh_failure_detector).
+-behavior(eh_unique_id_generator).
 
--export([set/2,
-         set/1,
-         detect/1]).
+-export([unique_id/0]).
 
--include("erlang_htas.hrl").
+-spec unique_id() -> term().
+unique_id() ->
+  make_ref().
 
-set(Node, NodeList) ->
-  NewNodeList = lists:delete(Node, NodeList),
-  lists:foreach(fun(N) -> monitor(process, {?EH_SYSTEM_SERVER, N}) end, NewNodeList),
-  ok.
-
-set(Node) ->
-  monitor(process, {?EH_SYSTEM_SERVER, Node}).
-
-detect({'DOWN', MRef, process, {?EH_SYSTEM_SERVER, Node}, _Reason}) ->
-  demonitor(MRef, [flush]),
-  {?EH_NODEDOWN, Node};
-detect(_) ->
-  ok.

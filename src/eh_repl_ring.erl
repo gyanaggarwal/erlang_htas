@@ -28,7 +28,7 @@ drop(Node, NodeList) ->
   lists:sort(lists:delete(Node, NodeList)).
 
 add(Node, NodeList) ->
-  lists:sort([Node | NodeList]).
+  lists:sort([Node | lists:delete(Node, NodeList)]).
 
 predecessor(Node, NodeList) ->
   NewNodeList = new_node_list(Node, NodeList),

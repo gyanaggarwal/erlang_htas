@@ -22,4 +22,6 @@
 
 -callback set(Node :: atom(), ReplRing :: list()) -> ok.
 
+-callback set(Node :: atom()) -> ok.
+
 -callback detect(Msg :: term()) -> ok | {?EH_NODEDOWN, atom()}.

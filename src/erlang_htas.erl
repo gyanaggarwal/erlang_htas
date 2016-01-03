@@ -21,6 +21,7 @@
 -export([start/0, 
          stop/0,
          setup_ring/1,
+         add_node/2,
          query/3,
          delete/3,
          update/5]).
@@ -36,6 +37,9 @@ stop() ->
 setup_ring(NodeList) ->
   gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, ?EH_SETUP_RING).
 
+add_node(Node, NodeList) ->
+  gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, {?EH_ADD_NODE, {Node, NodeList}}).
+
 query(Node, ObjectType, ObjectId) ->
   send(Node, ?EH_QUERY, {ObjectType, ObjectId}, ?READ_TIMEOUT).
 
@@ -47,7 +51,9 @@ update(Node, ObjectType, ObjectId, UpdateColumns, DeleteColumns) ->
   send(Node, ?EH_UPDATE, {ObjectType, ObjectId, Columns}, ?UPDATE_TIMEOUT).
 
 send(Node, MsgTag, Msg, Timeout) ->
-  Ref = make_ref(),
+  AppConfig = eh_system_config:get_env(),
+  UniqueIdGenerator = eh_system_config:get_unique_id_generator(AppConfig),
+  Ref = UniqueIdGenerator:unique_id(),
   gen_server:cast({?EH_SYSTEM_SERVER, Node}, {MsgTag, {self(), Ref, Msg}}),
   receive
     {reply, Ref, Reply} ->

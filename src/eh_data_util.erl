@@ -21,6 +21,8 @@
 -export([query_data/3,
          snapshot_data/3,
          make_data/5,
+         make_transient_data/5,
+         merge_data/3,
          add_key_value/2]).
 
 -include("erlang_htas.hrl").
@@ -66,20 +68,51 @@ query_data(ObjectType, ObjectId, Mi0) ->
 make_data(ObjectType, ObjectId, Timestamp, ?STATUS_INACTIVE, Di0) ->
   Qi0 = queue:new(),
   StorageData = storage_data(ObjectType, ObjectId, Timestamp, 1, {undefined, ?STATUS_INACTIVE, undefined}),
-  add_data(StorageData, 1, Qi0, Di0);
+  add_data(StorageData, Qi0, Di0);
 make_data(ObjectType, ObjectId, Timestamp, Columns, Di0) ->
   make_data_acc(ObjectType, ObjectId, Timestamp, Columns, {0, queue:new(), Di0}).
 
 make_data_acc(ObjectType, ObjectId, Timestamp, [H | T], {DataIndex0, Qi0, Di0}) ->
   DataIndex1 = DataIndex0+1,
   StorageData = storage_data(ObjectType, ObjectId, Timestamp, DataIndex1, H),
-  make_data_acc(ObjectType, ObjectId, Timestamp, T, add_data(StorageData, DataIndex1, Qi0, Di0)); 
+  make_data_acc(ObjectType, ObjectId, Timestamp, T, add_data(StorageData, Qi0, Di0)); 
 make_data_acc(_, _, _, [], Acc0) ->
   Acc0.
 
-add_data(StorageData, DataIndex, Q0, D0) ->
-  {DataIndex, queue:in(StorageData, Q0), add_key_value(StorageData, D0)}.
+add_data(StorageData, Q0, D0) ->
+  {StorageData#eh_storage_data.data_index, queue:in(StorageData, Q0), add_key_value(StorageData, D0)}.
 
+make_transient_data(ObjectType, ObjectId, Timestamp, ?STATUS_INACTIVE, Qi0) ->
+  StorageData = storage_data(ObjectType, ObjectId, Timestamp, 1, {undefined, ?STATUS_INACTIVE, undefined}),
+  queue:in(StorageData, Qi0);
+make_transient_data(ObjectType, ObjectId, Timestamp, Columns, Qi0) ->
+  make_transient_data_acc(ObjectType, ObjectId, Timestamp, Columns, 0, Qi0).
+
+make_transient_data_acc(ObjectType, ObjectId, Timestamp, [H | T], DataIndex0, Qi0) ->
+  DataIndex1 = DataIndex0+1,
+  StorageData = storage_data(ObjectType, ObjectId, Timestamp, DataIndex1, H),
+  make_transient_data_acc(ObjectType, ObjectId, Timestamp, T, DataIndex1, queue:in(StorageData, Qi0));
+make_transient_data_acc(_, _, _, [], _, Acc0) ->
+  Acc0.
+
+merge_data(Q0, TQ0, M0) ->
+  {TS1, DI1, Q1, M1} = merge_data_acc(Q0, queue:new(), M0, 0, 0, true),
+  merge_data_acc(TQ0, Q1, M1, TS1, DI1, true).
+
+merge_data_acc(Qi0, Qo0, Mi0, TS0, DI0, CheckFlag) ->
+  case queue:out(Qi0) of
+    {empty, _}                  ->
+      {TS0, DI0, Qo0, Mi0};
+    {{value, StorageData}, Qi1} ->
+      case (not CheckFlag) orelse (StorageData#eh_storage_data.timestamp > TS0) of
+        true  ->
+          {DI1, Qo1, Mi1} = add_data(StorageData, Qo0, Mi0),
+          merge_data_acc(Qi1, Qo1, Mi1, StorageData#eh_storage_data.timestamp, DI1, false);
+        false ->
+          merge_data_acc(Qi1, Qo0, Mi0, TS0, DI0, CheckFlag)
+      end
+  end.
+   
 storage_data(#eh_storage_key{object_type=ObjectType, object_id=ObjectId},
              #eh_storage_value{timestamp=Timestamp, data_index=DataIndex, status=Status, column=Column, value=Value}) ->
   storage_data(ObjectType, ObjectId, Timestamp, DataIndex, {Column, Status, Value}).

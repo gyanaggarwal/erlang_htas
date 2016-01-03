@@ -20,13 +20,15 @@
 
 -include("erlang_htas.hrl").
 
--callback update(Timestamp :: non_neg_integer(), Msg :: term()) -> ok.
+-callback update(NodeState :: atom(), Timestamp :: non_neg_integer(), Msg :: term()) -> ok.
 
--callback timestamp() -> non_neg_integer().
+-callback timestamp() -> {non_neg_integer(), non_neg_integer()}.
 
 -callback query(Msg :: term()) -> {atom(), term(), list()}.
 
 -callback snapshot(Timestamp :: non_neg_integer(), DataIndex :: non_neg_integer()) -> queue:queue().
+
+-callback update_snapshot(Q0 :: queue:queue()) -> ok.
 
 
 
