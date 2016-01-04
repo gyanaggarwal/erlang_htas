@@ -16,7 +16,7 @@
 %% under the License.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--module(eh_sup).
+-module(eh_system_sup).
 
 -behavior(supervisor).
 
@@ -37,13 +37,14 @@ init([]) ->
   RestartPeriod    = eh_system_config:get_sup_restart_period(AppConfig),
   ChildShutdown    = eh_system_config:get_sup_child_shutdown(AppConfig),
 
-  Sup   = {eh_system_sup, {eh_system_sup, start_link, []},
-           permanent, ChildShutdown, supervisor, []},
-  Event = {eh_event,      {eh_event,      start_link, []},
-           permanent, ChildShutdown, worker, dynamic},
-   
-  Childern        = [Sup, Event],
-  RestartStrategy = {one_for_one, RestartIntensity, RestartPeriod},
+  Htas  = {eh_system_server, {eh_system_server, start_link, [AppConfig]},
+           permanent, ChildShutdown, worker, [eh_system_server]},
+  
+  Data  = {eh_data_server, {eh_data_server, start_link, [AppConfig]},
+           permanent, ChildShutdown, worker, [eh_data_server]},
+ 
+  Childern        = [Htas, Data],
+  RestartStrategy = {one_for_all, RestartIntensity, RestartPeriod},
 
   {ok, {RestartStrategy, Childern}}.
 

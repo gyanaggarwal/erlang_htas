@@ -19,8 +19,8 @@
 {application, erlang_htas,
  [ {description, "a high throughput atomic storage"}
   ,{vsn, "0.1.0"}
-  ,{modules, [eh_app, eh_sup, eh_system_server, eh_event, eh_data_server]}
-  ,{registered, [eh_sup, eh_system_server, eh_event, eh_data_server]}
+  ,{modules, [eh_app, eh_sup, eh_system_sup, eh_system_server, eh_event, eh_data_server]}
+  ,{registered, [eh_sup, eh_system_sup, eh_system_server, eh_event, eh_data_server]}
   ,{applications, [kernel, stdlib]}
   ,{mod, {eh_app, []}}
  ]}.
