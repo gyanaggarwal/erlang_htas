@@ -187,6 +187,9 @@ handle_cast({?EH_PRED_UPDATE, {#eh_update_msg{timestamp=MsgTimestamp, node_id=Ms
   event_state("handle_cast.eh_pred_update.99", NewState9),
   {noreply, NewState9};
 
+handle_cast({stop, Reason}, State) ->
+  {stop, Reason, State};
+
 handle_cast(_Msg, State) ->
   {noreply, State}.
 
