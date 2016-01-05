@@ -24,7 +24,8 @@
          query/1,
          timestamp/0,
          snapshot/2,
-         update_snapshot/1]).
+         update_snapshot/1,
+         data_view/0]).
 
 -include("erlang_htas.hrl").
 
@@ -47,3 +48,7 @@ snapshot(Timestamp, DataIndex) ->
 -spec update_snapshot(Q0 :: queue:queue()) -> ok.
 update_snapshot(Q0) ->
   gen_server:call(?EH_DATA_SERVER, {?EH_UPDATE_SNAPSHOT, Q0}).
+
+-spec data_view() -> term().
+data_view() ->
+  gen_server:call(?EH_DATA_SERVER, ?EH_DATA_VIEW).

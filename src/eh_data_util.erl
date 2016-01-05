@@ -23,7 +23,8 @@
          make_data/5,
          make_transient_data/5,
          merge_data/3,
-         add_key_value/2]).
+         add_key_value/2,
+         data_view/1]).
 
 -include("erlang_htas.hrl").
 
@@ -149,3 +150,18 @@ add_key_value(StorageData, M0) ->
        end,
   maps:put(Key,	queue:in(Value,	Q1), M0).
 
+data_view(Data) ->
+  Acc0 = maps:fold(fun data_view_fun/3, [], Data),
+  lists:keysort(1, Acc0).
+
+data_view_fun(K, Qi0, Acc) ->
+  Count = queue:len(Qi0),
+  {Low1, High1} = case Count of
+                    0 ->
+                      {0, 0};
+                    _ ->
+                     {value, #eh_storage_value{timestamp=Low}} = queue:peek(Qi0),
+                     {value, #eh_storage_value{timestamp=High}} = queue:peek_r(Qi0),
+                     {Low, High}
+                end,
+  [{K, Count, Low1, High1} | Acc].

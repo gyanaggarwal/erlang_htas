@@ -39,7 +39,11 @@ init([AppConfig]) ->
   State = #eh_system_state{repl_ring=ReplRing, successor=Succ, app_config=AppConfig},
   {ok, State}.
 
-
+handle_call(?EH_DATA_VIEW, _From, #eh_system_state{app_config=AppConfig}=State) ->
+  ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
+  Reply = ReplDataManager:data_view(),
+  {reply, Reply, State};
+  
 handle_call(_Msg, _From, State) ->
   {reply, ok, State}.
 

@@ -30,6 +30,8 @@
 
 -callback update_snapshot(Q0 :: queue:queue()) -> ok.
 
+-callback data_view() -> term().
+
 
 
  

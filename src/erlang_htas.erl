@@ -26,7 +26,8 @@
          query/3,
          delete/3,
          update/5,
-         multi_update/5]).
+         multi_update/5,
+         data_view/1]).
 
 -include("erlang_htas.hrl").
 
@@ -35,6 +36,10 @@ start() ->
 
 stop() ->
   application:stop(erlang_htas).
+
+data_view(NodeList) ->
+  {Replies, _} = gen_server:multi_call(NodeList, ?EH_SYSTEM_SERVER, ?EH_DATA_VIEW),
+  Replies.
 
 setup_ring(NodeList) ->
   gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, ?EH_SETUP_RING).
