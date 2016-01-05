@@ -98,7 +98,7 @@ handle_cast({?EH_UPDATE_SNAPSHOT, _}, State) ->
 
 handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}}, 
             #eh_system_state{pre_msg_data=PreMsgData, node_state=NodeState, app_config=AppConfig}=State) ->
-  Reply = case eh_node_state:client_state(NodeState) of
+  Reply = case eh_node_state:data_state(NodeState) of
             ?EH_STATE_TRANSIENT ->
               {error, ?EH_NODE_UNAVAILABLE};
             _                   ->  

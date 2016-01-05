@@ -141,11 +141,11 @@ exist_pre_update_msg(ObjectType, ObjectId, Map) ->
 valid_pre_update_message(#eh_update_msg{object_type=ObjectType, 
                                         object_id=ObjectId, 
                                         timestamp=Timestamp, 
-                                        client_id=ClientId, 
-                                        node_id=NodeId, 
-                                        reference=Ref}=UpdateMsg,
-                         #eh_system_state{pre_msg_data=PreMsgData, 
+                                        node_id=MsgNodeId}=UpdateMsg,
+                         #eh_system_state{pre_msg_data=PreMsgData,
+                                          msg_data=MsgData, 
                                           app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
   case returned_message(UpdateMsg, State) of
     true  ->
       {true, State};
@@ -158,20 +158,25 @@ valid_pre_update_message(#eh_update_msg{object_type=ObjectType,
             error           ->
               {true, State};
             {ok, #eh_update_msg{node_id=ENodeId, client_id=EClientId, reference=ERef}=EUpdateMsg} ->
-              case NodeId =:= ENodeId of
+              case MsgNodeId =:= ENodeId of
                 true  ->
                   {false, State};
                 false ->
                   ConflictResolver = eh_system_config:get_write_conflict_resolver(AppConfig),
-                  ResolvedNodeId = ConflictResolver:resolve(NodeId, ENodeId),
-                  case ResolvedNodeId =:= NodeId of
+                  ResolvedNodeId = ConflictResolver:resolve(MsgNodeId, ENodeId),
+                  case ResolvedNodeId =:= MsgNodeId of
                     true  ->
                       NewPreMsgData = remove_pre_update_msg(EUpdateMsg, PreMsgData),
-                      NewState = State#eh_system_state{pre_msg_data=NewPreMsgData},
-                      reply(EClientId, ERef, {ENodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED}),
+                      NewMsgData = remove_update_msg(EUpdateMsg, MsgData),
+                      NewState = State#eh_system_state{pre_msg_data=NewPreMsgData, msg_data=NewMsgData},
+                      case ENodeId =:= NodeId of
+                        true  ->
+                          reply(EClientId, ERef, {ENodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED});
+                        false ->
+                          ok
+                      end,
                       {true, NewState};
                     false ->
-                      reply(ClientId, Ref, {NodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED}),
                       {false, State}
                   end
               end

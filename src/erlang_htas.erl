@@ -25,7 +25,8 @@
          add_node/2,
          query/3,
          delete/3,
-         update/5]).
+         update/5,
+         multi_update/5]).
 
 -include("erlang_htas.hrl").
 
@@ -45,26 +46,36 @@ stop(Node, Reason) ->
   gen_server:cast({?EH_SYSTEM_SERVER, Node}, {stop, Reason}).
 
 query(Node, ObjectType, ObjectId) ->
-  send(Node, ?EH_QUERY, {ObjectType, ObjectId}, ?READ_TIMEOUT).
+  send([Node], ?EH_QUERY, {ObjectType, ObjectId}, ?READ_TIMEOUT).
 
 delete(Node, ObjectType, ObjectId) ->
-  send(Node, ?EH_UPDATE, {ObjectType, ObjectId, ?STATUS_INACTIVE}, ?UPDATE_TIMEOUT).
+  send([Node], ?EH_UPDATE, {ObjectType, ObjectId, ?STATUS_INACTIVE}, ?UPDATE_TIMEOUT).
 
 update(Node, ObjectType, ObjectId, UpdateColumns, DeleteColumns) ->
   Columns = combine_columns(UpdateColumns, DeleteColumns),
-  send(Node, ?EH_UPDATE, {ObjectType, ObjectId, Columns}, ?UPDATE_TIMEOUT).
+  send([Node], ?EH_UPDATE, {ObjectType, ObjectId, Columns}, ?UPDATE_TIMEOUT).
 
-send(Node, MsgTag, Msg, Timeout) ->
+multi_update(NodeList, ObjectType, ObjectId, UpdateColumns, DeleteColumns) ->
+  Columns = combine_columns(UpdateColumns, DeleteColumns),
+  send(NodeList, ?EH_UPDATE, {ObjectType, ObjectId, Columns}, ?UPDATE_TIMEOUT).
+
+send(NodeList, MsgTag, Msg, Timeout) ->
   AppConfig = eh_system_config:get_env(),
   UniqueIdGenerator = eh_system_config:get_unique_id_generator(AppConfig),
   Ref = UniqueIdGenerator:unique_id(),
-  gen_server:cast({?EH_SYSTEM_SERVER, Node}, {MsgTag, {self(), Ref, Msg}}),
-  receive
-    {reply, Ref, Reply} ->
-      Reply
-  after Timeout ->
-      {error, {?EH_NODEDOWN, Node}}
-  end.
+  gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, {MsgTag, {self(), Ref, Msg}}),
+  receive_msg(Ref, Timeout, NodeList, []).
+
+receive_msg(Ref, Timeout, [Node | RNodeList], Acc) ->
+  Reply1 = receive
+             {reply, Ref, Reply} ->
+               Reply
+           after Timeout ->
+             {error, {?EH_NODEDOWN, Node}}
+           end,
+  receive_msg(Ref, Timeout, RNodeList, [Reply1 | Acc]);
+receive_msg(_Ref, _Timeout, [], Acc) ->
+  Acc.
 
 combine_columns(UpdateColumns, DeleteColumns) ->
   get_columns(lists:reverse(UpdateColumns), get_columns(lists:reverse(DeleteColumns), [])).
