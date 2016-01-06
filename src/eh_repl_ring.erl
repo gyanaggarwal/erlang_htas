@@ -31,7 +31,7 @@ add(Node, NodeList) ->
   lists:sort([Node | lists:delete(Node, NodeList)]).
 
 predecessor(Node, NodeList) ->
-  NewNodeList = new_node_list(Node, NodeList),
+  NewNodeList = add(Node, NodeList),
   {L1, L2} = lists:splitwith(fun(N) -> N < Node end, NewNodeList),
   case {length(L1), length(L2)} of
     {0, 0} -> 
@@ -45,7 +45,7 @@ predecessor(Node, NodeList) ->
   end.
 
 successor(Node, NodeList) ->
-  NewNodeList = new_node_list(Node, NodeList),
+  NewNodeList = add(Node, NodeList),
   {L1, L2} = lists:splitwith(fun(N) -> N =< Node end, NewNodeList),
   case {length(L1), length(L2)} of
     {0, 0} ->
@@ -66,10 +66,4 @@ originating_node_id(Node, NodeList) ->
       predecessor(Node, NodeList)
   end.
 
-new_node_list(Node, NodeList) ->
-  case lists:member(Node, NodeList) of
-    true  ->
-      NodeList;
-    false ->
-      add(Node, NodeList)
-  end.
+

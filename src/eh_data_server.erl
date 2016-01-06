@@ -55,8 +55,8 @@ handle_call({?EH_UPDATE, {?EH_STATE_NORMAL, Timestamp, {ObjectType, ObjectId, Ex
   {DI0, Q0, D0} = eh_data_util:make_data(ObjectType, ObjectId, Timestamp, Extra, Data),
   ok = eh_storage_data_operation_api:write(AppConfig, File, Q0),
   {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}};
-handle_call({?EH_UPDATE_SNAPSHOT, Q0}, _From, #eh_data_state{file=File, data=Data, transient_data=TData, app_config=AppConfig}=State) ->
-  {Timestamp, DI0, Q0, D0} = eh_data_util:merge_data(Q0, TData, Data),
+handle_call({?EH_UPDATE_SNAPSHOT, Q}, _From, #eh_data_state{file=File, data=Data, transient_data=TData, app_config=AppConfig}=State) ->
+  {Timestamp, DI0, Q0, D0} = eh_data_util:merge_data(Q, TData, Data),
   ok = eh_storage_data_operation_api:write(AppConfig, File, Q0),
   {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}};
 handle_call(?EH_DATA_VIEW, _From, #eh_data_state{data=Data}=State) ->

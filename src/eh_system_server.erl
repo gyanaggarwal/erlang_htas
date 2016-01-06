@@ -60,17 +60,19 @@ handle_cast(?EH_SETUP_RING,
   {noreply, NewState2};
 
 handle_cast({?EH_ADD_NODE, {Node, NodeList}}, #eh_system_state{repl_ring=ReplRing, app_config=AppConfig}=State) ->
+  event_state("handle_cast.eh_add_node.00", State),
   FailureDetector = eh_system_config:get_failure_detector(AppConfig),
   NewState2 = case eh_system_util:valid_add_node_message(Node, State) of
-                ?EH_VALID_FOR_NEW      -> 
-                  NewSucc = eh_repl_ring:successor(Node, NodeList),
+                ?EH_VALID_FOR_NEW      ->
+                  NewNodeList = eh_repl_ring:add(Node, NodeList), 
+                  NewSucc = eh_repl_ring:successor(Node, NewNodeList),
                   UniqueIdGenerator = eh_system_config:get_unique_id_generator(AppConfig),
                   Ref = UniqueIdGenerator:unique_id(),
                   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
-                  FailureDetector:set(Node, NodeList),
+                  FailureDetector:set(Node, NewNodeList),
                   {Timestamp, DataIndex} = ReplDataManager:timestamp(),
                   gen_server:cast({?EH_SYSTEM_SERVER, NewSucc}, {?EH_SNAPSHOT, {self(), Ref, {Timestamp, DataIndex}}}),
-                  State#eh_system_state{successor=NewSucc, repl_ring=NodeList, reference=Ref};
+                  State#eh_system_state{successor=NewSucc, repl_ring=NewNodeList, reference=Ref};
                 ?EH_VALID_FOR_EXISTING -> 
                   NodeId = eh_system_config:get_node_id(AppConfig),
                   NewReplRing = eh_repl_ring:add(Node, ReplRing),
