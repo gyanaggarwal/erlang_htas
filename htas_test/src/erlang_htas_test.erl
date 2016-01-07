@@ -30,8 +30,8 @@ run() ->
 
 run_test(#eh_run_state{valid_result=false, curr_result=CurrResult}) ->
   CurrResult;
-run_test(#eh_run_state{test_runs=0, down_nodes=[], curr_result=CurrResult}) ->
-  CurrResult;
+run_test(#eh_run_state{test_runs=0, down_nodes=[]}) ->
+  ok;
 run_test(#eh_run_state{test_runs=TestRuns,
                        run_num=RunNum}=State) ->
   DataEntries = eh_test_util:get_random(?DATA_ENTRIES),
