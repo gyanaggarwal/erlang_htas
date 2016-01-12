@@ -18,20 +18,134 @@
 
 -module(eh_node_timestamp).
 
--export([update_ring_timestamp/5]).
+-export([update_state_client_reply/2,
+         update_state_completed_set/2,
+         update_state_new_msg/4,
+         update_state_timestamp/2,
+         update_state_msg_data/3,
+         update_state_merge_completed_set/2,
+         valid_pre_update_msg/3,
+         valid_update_msg/3,
+         valid_add_node_msg/2]).
 
 -include("erlang_htas.hrl").
 
-update_ring_timestamp(Tag, Timestamp, NodeId, SrcRingTimestamp, TrgRingTimestamp) ->
-  NodeTimestamp = eh_system_util:get_node_timestamp(NodeId, SrcRingTimestamp),
-  maps:put(NodeId, update_node_timestamp(Tag, Timestamp, NodeTimestamp), TrgRingTimestamp).
+update_state_client_reply(UpdateMsgKey, 
+                          #eh_system_state{ring_completed_map=RingCompletedMap, msg_data=MsgData, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  MsgData1 = eh_system_util:remove_map(UpdateMsgKey, MsgData),
+  RingCompletedMap1 = eh_ring_completed_map:add_msg_key(NodeId, UpdateMsgKey, RingCompletedMap),
+  State#eh_system_state{ring_completed_map=RingCompletedMap1, msg_data=MsgData1}.
 
-update_node_timestamp(?EH_UPDATE_INITIATED_MSG, Timestamp, #eh_node_timestamp{update_initiated=ETimestamp}=NodeTimestamp) ->
-  NodeTimestamp#eh_node_timestamp{update_initiated=max(Timestamp, ETimestamp)};
-update_node_timestamp(?EH_UPDATE_COMPLETED_MSG, Timestamp, #eh_node_timestamp{update_completed=ETimestamp}=NodeTimestamp) ->
-  NodeTimestamp#eh_node_timestamp{update_completed=max(Timestamp, ETimestamp)};
-update_node_timestamp(?EH_PRED_PRE_UPDATE_MSG, Timestamp, #eh_node_timestamp{pred_pre_update=ETimestamp}=NodeTimestamp) ->
-  NodeTimestamp#eh_node_timestamp{pred_pre_update=max(Timestamp, ETimestamp)};
-update_node_timestamp(?EH_PRED_UPDATE_MSG, Timestamp, #eh_node_timestamp{pred_update=ETimestamp}=NodeTimestamp) ->
-  NodeTimestamp#eh_node_timestamp{pred_update=max(Timestamp, ETimestamp)}.
+update_state_completed_set(CompletedSet, 
+                           #eh_system_state{ring_completed_map=RingCompletedMap, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  State#eh_system_state{ring_completed_map=eh_ring_completed_map:subtract_replace_completed_set(NodeId, CompletedSet, RingCompletedMap)}.
+
+update_state_merge_completed_set(OtherNodeId,
+                                 #eh_system_state{ring_completed_map=RingCompletedMap, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  RingCompletedMap1 = eh_ring_completed_map:merge_completed_set(NodeId, OtherNodeId, RingCompletedMap),
+  State#eh_system_state{ring_completed_map=RingCompletedMap1}.
+
+update_state_msg_data(NodeId,
+                      CompletedSet,
+                      #eh_system_state{msg_data=MsgData, ring_completed_map=RingCompletedMap}=State) ->
+  RingCompletedMap1 = eh_ring_completed_map:add_completed_set(NodeId, CompletedSet, RingCompletedMap),
+  MsgData1 = sets:fold(fun(X, Acc) -> eh_system_util:remove_map(X, Acc) end, MsgData, eh_ring_completed_map:get_ring_completed_set(RingCompletedMap1)),
+  State#eh_system_state{msg_data=MsgData1, ring_completed_map=RingCompletedMap1}.
+
+update_state_new_msg(?EH_PRED_PRE_UPDATE, 
+                     UpdateMsgKey, 
+                     UpdateMsgData, 
+                     #eh_system_state{pre_msg_data=PreMsgData}=State) ->
+  PreMsgData1 = eh_system_util:add_map(UpdateMsgKey, UpdateMsgData, PreMsgData),
+  State#eh_system_state{pre_msg_data=PreMsgData1};
+update_state_new_msg(?EH_PRED_UPDATE, 
+                     UpdateMsgKey, 
+                     UpdateMsgData, 
+                     #eh_system_state{pre_msg_data=PreMsgData, msg_data=MsgData}=State) ->
+  PreMsgData1 = eh_system_util:remove_map(UpdateMsgKey, PreMsgData),
+  MsgData1 = eh_system_util:add_map(UpdateMsgKey, UpdateMsgData, MsgData),
+  State#eh_system_state{pre_msg_data=PreMsgData1, msg_data=MsgData1}.
+
+update_state_timestamp(MsgTimestamp, 
+                       #eh_system_state{timestamp=Timestamp}=State) ->
+  State#eh_system_state{timestamp=max(MsgTimestamp, Timestamp)}.
+
+valid_add_node_msg(Node, 
+                   #eh_system_state{repl_ring=ReplRing, node_state=NodeState, app_config=AppConfig}) ->
+  case {eh_node_state:client_state(NodeState), Node =:= eh_system_config:get_node_id(AppConfig), lists:member(Node, ReplRing)} of
+    {?EH_STATE_TRANSIENT, true, _}   ->
+      ?EH_VALID_FOR_NEW;
+    {?EH_STATE_NORMAL, false, false} ->
+      ?EH_VALID_FOR_EXISTING;
+    {_, _, _}                        ->
+      ?EH_INVALID_MSG
+  end.
+
+returned_msg(#eh_update_msg_data{node_id=MsgNodeId}, 
+             #eh_system_state{repl_ring=ReplRing, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  OriginNodeId = eh_repl_ring:originating_node_id(MsgNodeId, ReplRing),
+  {NodeId =:= OriginNodeId, ?EH_RETURNED_MSG, State}.
+
+valid_msg(Fun, 
+          UpdateMsgKey,
+          #eh_update_msg_data{node_id=MsgNodeId}=UpdateMsgData,
+          MsgData,
+          MsgData1,
+          IsKeyFun,
+          State) ->
+  case maps:find(UpdateMsgKey, MsgData) of
+    error                                        ->
+       {not IsKeyFun(UpdateMsgKey, MsgData1), ?EH_RING_MSG, State};
+    {ok, #eh_update_msg_data{node_id=MsgNodeId}} ->
+      returned_msg(UpdateMsgData, State);
+    {ok, EUpdateMsgData}                         ->
+      Fun(UpdateMsgKey, UpdateMsgData, EUpdateMsgData, State)   
+  end.
+
+update_conflict_resolver(_, _, _, State) ->
+  {false, ?EH_RING_MSG, State}.
+
+valid_update_msg(UpdateMsgKey,
+                 UpdateMsgData,
+                 #eh_system_state{msg_data=MsgData, ring_completed_map=RingCompletedMap}=State) ->
+  valid_msg(fun update_conflict_resolver/4, UpdateMsgKey, UpdateMsgData, MsgData, eh_ring_completed_map:get_ring_completed_set(RingCompletedMap), fun eh_system_util:is_key_set/2, State).
+
+pre_update_conflict_resolver(#eh_update_msg_key{object_type=ObjectType, object_id=ObjectId}=UpdateMsgKey,
+                             #eh_update_msg_data{node_id=MsgNodeId},
+                             #eh_update_msg_data{node_id=EMsgNodeId, client_id=ClientId, reference=Ref},
+                             #eh_system_state{pre_msg_data=PreMsgData, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  ConflictResolver = eh_system_config:get_write_conflict_resolver(AppConfig),
+  ResolvedNodeId = ConflictResolver:resolve(MsgNodeId, EMsgNodeId),
+  case ResolvedNodeId =:= MsgNodeId of
+    true  ->
+      PreMsgData1 = eh_system_util:remove_map(UpdateMsgKey, PreMsgData),
+      State1 = State#eh_system_state{pre_msg_data=PreMsgData1},
+      case EMsgNodeId =:= NodeId of
+        true  ->
+          eh_system_util:reply(ClientId, Ref, {EMsgNodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED});
+        false ->
+          ok
+      end,
+      {true, ?EH_RING_MSG, State1};
+    false ->
+      {false, ?EH_RING_MSG, State}
+  end.
+
+valid_pre_update_msg(UpdateMsgKey,
+                     UpdateMsgData,
+                     #eh_system_state{pre_msg_data=PreMsgData, msg_data=MsgData}=State) ->
+  valid_msg(fun pre_update_conflict_resolver/4, UpdateMsgKey, UpdateMsgData, PreMsgData, MsgData, fun eh_system_util:is_key_map/2, State).
+
+
+
+
+
+
+
+
 

@@ -18,6 +18,10 @@
 
 -define(TEST_RUNS,             {20, 40}).
 -define(DATA_ENTRIES,          {10, 20}).
+-define(BULK_DATA_ENTRIES,     {600, 1000}).
+
+-define(ENTRY_SLEEP_TIME,      100).
+-define(NODE_SLEEP_TIME,       5000).
 
 -define(NODE_LIST,             ['eh_n1@Gyanendras-MacBook-Pro', 
                                 'eh_n2@Gyanendras-MacBook-Pro',
