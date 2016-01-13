@@ -110,9 +110,10 @@ handle_cast({?EH_UPDATE_SNAPSHOT, _}, State) ->
 
 handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}}, 
             #eh_system_state{pre_msg_data=PreMsgData, node_state=NodeState, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
   Reply = case eh_node_state:data_state(NodeState) of
             ?EH_STATE_TRANSIENT ->
-              {error, ?EH_NODE_UNAVAILABLE};
+              {error, {NodeId, ?EH_NODE_UNAVAILABLE}};
             _                   ->  
               case eh_system_util:exist_map_msg(ObjectType, ObjectId, PreMsgData) of
                 false ->
@@ -127,12 +128,13 @@ handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}},
 
 handle_cast({?EH_UPDATE, {From, Ref, ObjectList}},
             #eh_system_state{timestamp=Timestamp, node_state=NodeState, successor=Succ, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
   NewState9 = case eh_node_state:client_state(NodeState) of
                 ?EH_STATE_TRANSIENT ->
+                  eh_system_util:reply(From, Ref, {error, {NodeId, ?EH_NODE_UNAVAILABLE}}),
                   State;
                 _                   ->
                   Timestamp1 = Timestamp+1,
-                  NodeId = eh_system_config:get_node_id(AppConfig),
                   {NodeId, ObjectType, ObjectId, UpdateData} = lists:keyfind(NodeId, 1, ObjectList),
                   {UMsgKey, UMsgData} = eh_system_util:get_update_msg(ObjectType, 
                                                                       ObjectId,
