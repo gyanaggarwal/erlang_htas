@@ -33,14 +33,14 @@ open(FileName) ->
 close(File) ->
   eh_persist_storage_data:close_data_file(File).
 
--spec read(AppConfig :: #eh_app_config{}, File :: file:io_device()) ->  {ok | error, non_neg_integer(), non_neg_integer(), queue:queue()}.
+-spec read(AppConfig :: #eh_app_config{}, File :: file:io_device()) ->  {ok | error, non_neg_integer(), list(), maps:map()}.
 read(AppConfig, File) ->
   EntryOperation = eh_system_config:get_storage_data(AppConfig),
-  read(EntryOperation, File, 0, 0, 0, maps:new()).
+  read(EntryOperation, File, 0, {0, []}, maps:new()).
 
--spec read(EntryOperation :: atom(), File :: file:io_device(), Loc :: non_neg_integer(), Timestamp :: non_neg_integer(), DataIndex :: non_neg_integer(), M0 :: maps:map()) 
-      -> {ok | error, non_neg_integer(), non_neg_integer(), maps:map()}.
-read(EntryOperation, File, Loc, Timestamp, DataIndex, M0) ->
+-spec read(EntryOperation :: atom(), File :: file:io_device(), Loc :: non_neg_integer(), {Timestamp :: non_neg_integer(), DataIndex :: list()}, M0 :: maps:map()) 
+      -> {ok | error, non_neg_integer(), list(), maps:map()}.
+read(EntryOperation, File, Loc, {Timestamp, DataIndex}, M0) ->
   case eh_persist_storage_data:read_data(File, Loc, EntryOperation:header_byte_size()) of
     eof               -> 
       {ok, Timestamp, DataIndex, M0};
@@ -59,8 +59,8 @@ read(EntryOperation, File, Loc, Timestamp, DataIndex, M0) ->
             ?EH_BAD_DATA ->
               eh_persist_storage_data:truncate_data(File, Loc),
               {error, Timestamp, DataIndex, M0};
-            {ok, #eh_storage_data{timestamp=Timestamp2, data_index=DataIndex2}=Entry}  ->
-              read(EntryOperation, File, Loc2, Timestamp2, DataIndex2, eh_data_util:add_key_value(Entry, M0))
+            {ok, Entry}  ->
+              read(EntryOperation, File, Loc2, eh_data_util:update_timestamp(Entry, {Timestamp, DataIndex}), eh_data_util:add_key_value(Entry, M0))
           end
       end
   end.

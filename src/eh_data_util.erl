@@ -20,10 +20,11 @@
 
 -export([query_data/3,
          snapshot_data/3,
-         make_data/5,
+         make_data/6,
          make_transient_data/5,
-         merge_data/3,
+         merge_data/4,
          add_key_value/2,
+         update_timestamp/2,
          data_view/1]).
 
 -include("erlang_htas.hrl").
@@ -40,15 +41,26 @@ sort_fun(#eh_storage_data{timestamp=Timestamp1, data_index=DataIndex1},
          #eh_storage_data{timestamp=Timestamp2, data_index=DataIndex2}) ->
   (Timestamp1 < Timestamp2) orelse (Timestamp1 =:= Timestamp2 andalso DataIndex1 =< DataIndex2).
 
-snapshot_fun({CTimestamp, CDataIndex, StorageKey}, 
-             #eh_storage_value{timestamp=Timestamp, data_index=DataIndex}=StorageValue, Qo0) 
-  when Timestamp > CTimestamp orelse (Timestamp =:= CTimestamp andalso DataIndex > CDataIndex) ->
+snapshot_fun({CTimestamp, _CDataIndexList, StorageKey}, 
+             #eh_storage_value{timestamp=Timestamp}=StorageValue, Qo0) 
+  when Timestamp > CTimestamp ->
   [storage_data(StorageKey, StorageValue) |  Qo0];
+snapshot_fun({CTimestamp, CDataIndexList, #eh_storage_key{object_type=ObjectType, object_id=ObjectId}=StorageKey},
+             #eh_storage_value{timestamp=Timestamp, data_index=DataIndex}=StorageValue, Qo0)
+  when Timestamp =:= CTimestamp ->
+  case lists:keyfind({ObjectType, ObjectId}, 1, CDataIndexList) of
+    false                                       ->
+      [storage_data(StorageKey, StorageValue) |  Qo0];
+    {_, CDataIndex} when DataIndex > CDataIndex ->
+      [storage_data(StorageKey, StorageValue) |  Qo0];
+    _                                           ->
+      Qo0
+  end;
 snapshot_fun(_, _, Qo0) ->
   Qo0.
 
-snapshot_data(Timestamp, DataIndex, Mi0) ->
- Acc0 = maps:fold(fun(K, Qi0, Acc) -> process_data(fun snapshot_fun/3, {Timestamp, DataIndex, K}, Qi0, Acc) end, [], Mi0),
+snapshot_data(Timestamp, DataIndexList, Mi0) ->
+ Acc0 = maps:fold(fun(K, Qi0, Acc) -> process_data(fun snapshot_fun/3, {Timestamp, DataIndexList, K}, Qi0, Acc) end, [], Mi0),
  queue:from_list(lists:sort(fun sort_fun/2, Acc0)).
 
 query_fun(_, #eh_storage_value{status=?STATUS_INACTIVE, column=undefined}, _Lo0) ->
@@ -66,22 +78,22 @@ query_data(ObjectType, ObjectId, Mi0) ->
       process_data(fun query_fun/3, {ObjectType, ObjectId}, Qi0, [])
   end.
 
-make_data(ObjectType, ObjectId, Timestamp, ?STATUS_INACTIVE, Di0) ->
+make_data(ObjectType, ObjectId, Timestamp, ?STATUS_INACTIVE, {StateTimestamp, StateDataIndexList}, Di0) ->
   Qi0 = queue:new(),
   StorageData = storage_data(ObjectType, ObjectId, Timestamp, 1, {undefined, ?STATUS_INACTIVE, undefined}),
-  add_data(StorageData, Qi0, Di0);
-make_data(ObjectType, ObjectId, Timestamp, Columns, Di0) ->
-  make_data_acc(ObjectType, ObjectId, Timestamp, Columns, {0, queue:new(), Di0}).
+  add_data(StorageData, Qi0, {StateTimestamp, StateDataIndexList}, Di0);
+make_data(ObjectType, ObjectId, Timestamp, Columns, {StateTimestamp, StateDataIndexList}, Di0) ->
+  make_data_acc(ObjectType, ObjectId, Timestamp, Columns, {0, {StateTimestamp, StateDataIndexList}, queue:new(), Di0}).
 
-make_data_acc(ObjectType, ObjectId, Timestamp, [H | T], {DataIndex0, Qi0, Di0}) ->
+make_data_acc(ObjectType, ObjectId, Timestamp, [H | T], {DataIndex0, {StateTimestamp, StateDataIndexList}, Qi0, Di0}) ->
   DataIndex1 = DataIndex0+1,
   StorageData = storage_data(ObjectType, ObjectId, Timestamp, DataIndex1, H),
-  make_data_acc(ObjectType, ObjectId, Timestamp, T, add_data(StorageData, Qi0, Di0)); 
+  make_data_acc(ObjectType, ObjectId, Timestamp, T, add_data(StorageData, Qi0, {StateTimestamp, StateDataIndexList}, Di0)); 
 make_data_acc(_, _, _, [], Acc0) ->
   Acc0.
 
-add_data(StorageData, Q0, D0) ->
-  {StorageData#eh_storage_data.data_index, queue:in(StorageData, Q0), add_key_value(StorageData, D0)}.
+add_data(StorageData, Q0, {StateTimestamp, StateDataIndexList}, D0) ->
+  {StorageData#eh_storage_data.data_index, update_timestamp(StorageData, {StateTimestamp, StateDataIndexList}), queue:in(StorageData, Q0), add_key_value(StorageData, D0)}.
 
 make_transient_data(ObjectType, ObjectId, Timestamp, ?STATUS_INACTIVE, Qi0) ->
   StorageData = storage_data(ObjectType, ObjectId, Timestamp, 1, {undefined, ?STATUS_INACTIVE, undefined}),
@@ -96,21 +108,21 @@ make_transient_data_acc(ObjectType, ObjectId, Timestamp, [H | T], DataIndex0, Qi
 make_transient_data_acc(_, _, _, [], _, Acc0) ->
   Acc0.
 
-merge_data(Q0, TQ0, M0) ->
-  {TS1, DI1, Q1, M1} = merge_data_acc(Q0, queue:new(), M0, 0, 0, true),
-  merge_data_acc(TQ0, Q1, M1, TS1, DI1, true).
+merge_data(Q0, TQ0, {StateTimestamp, StateDataIndexList}, M0) ->
+  {TS1, DIL1, Q1, M1} = merge_data_acc(Q0, queue:new(), M0, StateTimestamp, StateDataIndexList, true),
+  merge_data_acc(TQ0, Q1, M1, TS1, DIL1, true).
 
-merge_data_acc(Qi0, Qo0, Mi0, TS0, DI0, CheckFlag) ->
+merge_data_acc(Qi0, Qo0, Mi0, TS0, DIL0, CheckFlag) ->
   case queue:out(Qi0) of
     {empty, _}                  ->
-      {TS0, DI0, Qo0, Mi0};
+      {TS0, DIL0, Qo0, Mi0};
     {{value, StorageData}, Qi1} ->
       case (not CheckFlag) orelse (StorageData#eh_storage_data.timestamp > TS0) of
         true  ->
-          {DI1, Qo1, Mi1} = add_data(StorageData, Qo0, Mi0),
-          merge_data_acc(Qi1, Qo1, Mi1, StorageData#eh_storage_data.timestamp, DI1, false);
+          {_, {_, DIL1}, Qo1, Mi1} = add_data(StorageData, Qo0, {TS0, DIL0}, Mi0),
+          merge_data_acc(Qi1, Qo1, Mi1, StorageData#eh_storage_data.timestamp, DIL1, false);
         false ->
-          merge_data_acc(Qi1, Qo0, Mi0, TS0, DI0, CheckFlag)
+          merge_data_acc(Qi1, Qo0, Mi0, TS0, DIL0, CheckFlag)
       end
   end.
    
@@ -165,3 +177,15 @@ data_view_fun(K, Qi0, Acc) ->
                      {Low, High}
                 end,
   [{K, Count, Low1, High1} | Acc].
+
+update_timestamp(#eh_storage_data{object_type=ObjectType, object_id=ObjectId, timestamp=EntryTimestamp, data_index=EntryDataIndex},
+                 {Timestamp, _List}) when EntryTimestamp > Timestamp ->
+  {EntryTimestamp, [{{ObjectType, ObjectId}, EntryDataIndex}]};
+update_timestamp(#eh_storage_data{object_type=ObjectType, object_id=ObjectId, timestamp=EntryTimestamp, data_index=EntryDataIndex},
+                 {Timestamp, List}) when EntryTimestamp =:= Timestamp ->
+  Object = {ObjectType, ObjectId},
+  List1 = [{Object, EntryDataIndex} | lists:keydelete(Object, 1, List)],
+  {Timestamp, List1};
+update_timestamp(_Entry,
+                 {Timestamp, List}) ->
+  {Timestamp, List}.

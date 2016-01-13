@@ -33,33 +33,50 @@ start_link(AppConfig) ->
 
 init([AppConfig]) ->
   {ok, File} = eh_storage_data_operation_api:open(AppConfig#eh_app_config.file_repl_data),
-  {_, Timestamp, DataIndex, Q0} = eh_storage_data_operation_api:read(AppConfig, File), 
-  State = #eh_data_state{timestamp=Timestamp, data_index=DataIndex, data=Q0, file=File, app_config=AppConfig},
+  {_, Timestamp, DataIndexList, D0} = eh_storage_data_operation_api:read(AppConfig, File), 
+  State = #eh_data_state{timestamp=Timestamp, data_index_list=DataIndexList, data=D0, file=File, app_config=AppConfig},
   {ok, State}.
 
-handle_call(?EH_TIMESTAMP, _From, State) ->
-  {reply, {State#eh_data_state.timestamp, State#eh_data_state.data_index}, State};
-handle_call({?EH_QUERY, {ObjectType, ObjectId}}, _From, #eh_data_state{data=Data}=State) ->
+handle_call(?EH_TIMESTAMP, 
+            _From, 
+            State) ->
+  {reply, {State#eh_data_state.timestamp, State#eh_data_state.data_index_list}, State};
+handle_call({?EH_QUERY, {ObjectType, ObjectId}}, 
+            _From, 
+            #eh_data_state{data=Data}=State) ->
   Reply = eh_data_util:query_data(ObjectType, ObjectId, Data),
   {reply, {ObjectType, ObjectId, Reply}, State};
-handle_call({?EH_SNAPSHOT, {Timestamp, DataIndex}}, _From, #eh_data_state{data=Data}=State) ->
+handle_call({?EH_SNAPSHOT, {Timestamp, DataIndex}}, 
+            _From, 
+            #eh_data_state{data=Data}=State) ->
   Reply = eh_data_util:snapshot_data(Timestamp, DataIndex, Data),
   {reply, Reply, State};
-handle_call({?EH_UPDATE, {?EH_STATE_TRANSIENT, Timestamp, {ObjectType, ObjectId, Extra}}}, _From, 
+handle_call({?EH_UPDATE, {?EH_STATE_TRANSIENT, Timestamp, {ObjectType, ObjectId, Extra}}}, 
+            _From, 
             #eh_data_state{transient_timestamp=TTimestamp, transient_data=TData}=State) when Timestamp > TTimestamp ->
   TData1 = eh_data_util:make_transient_data(ObjectType, ObjectId, Timestamp, Extra, TData),
   {reply, ok, State#eh_data_state{transient_timestamp=Timestamp, transient_data=TData1}};
-handle_call({?EH_UPDATE, {?EH_STATE_TRANSIENT, _Timestamp, _}}, _From, State) ->
+handle_call({?EH_UPDATE, {?EH_STATE_TRANSIENT, _Timestamp, _}}, 
+            _From, 
+            State) ->
   {reply, ok, State};
-handle_call({?EH_UPDATE, {?EH_STATE_NORMAL, Timestamp, {ObjectType, ObjectId, Extra}}}, _From, #eh_data_state{file=File, data=Data, app_config=AppConfig}=State) ->
-  {DI0, Q0, D0} = eh_data_util:make_data(ObjectType, ObjectId, Timestamp, Extra, Data),
+handle_call({?EH_UPDATE, {?EH_STATE_NORMAL, Timestamp, {ObjectType, ObjectId, Extra}}}, 
+            _From, 
+            #eh_data_state{file=File, data=Data, timestamp=StateTimestamp, data_index_list=StateDataIndexList, app_config=AppConfig}=State) ->
+  {_, {_, DIL0}, Q0, D0} = eh_data_util:make_data(ObjectType, ObjectId, Timestamp, Extra, {StateTimestamp, StateDataIndexList}, Data),
   ok = eh_storage_data_operation_api:write(AppConfig, File, Q0),
-  {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}};
-handle_call({?EH_UPDATE_SNAPSHOT, Q}, _From, #eh_data_state{file=File, data=Data, transient_data=TData, app_config=AppConfig}=State) ->
-  {Timestamp, DI0, Q0, D0} = eh_data_util:merge_data(Q, TData, Data),
+  State1 = State#eh_data_state{timestamp=Timestamp, data_index_list=DIL0, data=D0},
+  {reply, ok, State1};
+handle_call({?EH_UPDATE_SNAPSHOT, Qi0}, 
+            _From, 
+            #eh_data_state{file=File, data=Data, transient_data=TData, timestamp=StateTimestamp, data_index_list=StateDataIndexList, app_config=AppConfig}=State) ->
+  {Timestamp, DIL0, Q0, D0} = eh_data_util:merge_data(Qi0, TData, {StateTimestamp, StateDataIndexList}, Data),
   ok = eh_storage_data_operation_api:write(AppConfig, File, Q0),
-  {reply, ok, State#eh_data_state{timestamp=Timestamp, data_index=DI0, data=D0}};
-handle_call(?EH_DATA_VIEW, _From, #eh_data_state{data=Data}=State) ->
+  State1= State#eh_data_state{timestamp=Timestamp, data_index_list=DIL0, data=D0, transient_data=queue:new()},
+  {reply, ok, State1};
+handle_call(?EH_DATA_VIEW, 
+            _From, 
+            #eh_data_state{data=Data}=State) ->
   Reply = eh_data_util:data_view(Data),
   {reply, Reply, State}.
 

@@ -47,6 +47,10 @@ handle_call(_Request, State) ->
 handle_info(_Info, State) ->
   {ok, State}.
 
+handle_event({data_state, {Module, Msg, #eh_data_state{timestamp=Timestamp, data_index_list=DIList}}}, State) ->
+  io:fwrite("[~p] ~p timestamp=~p, data_index_list=~p~n", [Module, Msg, Timestamp, DIList]),
+  {ok, State};
+
 handle_event({state, {Module, Msg, StateData=#eh_system_state{}}}, State) ->
   NodeId = eh_system_util:get_node_name(StateData#eh_system_state.app_config#eh_app_config.node_id),
   Successor = eh_system_util:get_node_name(StateData#eh_system_state.successor),

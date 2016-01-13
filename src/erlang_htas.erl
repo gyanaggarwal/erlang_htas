@@ -26,7 +26,7 @@
          query/3,
          delete/3,
          update/5,
-         multi_update/5,
+         multi_update/2,
          data_view/1]).
 
 -include("erlang_htas.hrl").
@@ -54,15 +54,18 @@ query(Node, ObjectType, ObjectId) ->
   send([Node], ?EH_QUERY, {ObjectType, ObjectId}, ?READ_TIMEOUT).
 
 delete(Node, ObjectType, ObjectId) ->
-  send([Node], ?EH_UPDATE, {ObjectType, ObjectId, ?STATUS_INACTIVE}, ?UPDATE_TIMEOUT).
+  update(Node, ObjectType, ObjectId, ?STATUS_INACTIVE).
 
 update(Node, ObjectType, ObjectId, UpdateColumns, DeleteColumns) ->
   Columns = combine_columns(UpdateColumns, DeleteColumns),
-  send([Node], ?EH_UPDATE, {ObjectType, ObjectId, Columns}, ?UPDATE_TIMEOUT).
+  update(Node, ObjectType, ObjectId, Columns).
 
-multi_update(NodeList, ObjectType, ObjectId, UpdateColumns, DeleteColumns) ->
-  Columns = combine_columns(UpdateColumns, DeleteColumns),
-  send(NodeList, ?EH_UPDATE, {ObjectType, ObjectId, Columns}, ?UPDATE_TIMEOUT).
+update(Node, ObjectType, ObjectId, Columns) ->
+  send([Node], ?EH_UPDATE, [{Node, ObjectType, ObjectId, Columns}], ?UPDATE_TIMEOUT).
+  
+multi_update(NodeList, ObjectList) ->
+  {NodeList1, ObjectList1} = multi_combine_columns(NodeList, ObjectList, [], []),
+  send(NodeList1, ?EH_UPDATE, ObjectList1, ?UPDATE_TIMEOUT).
 
 send(NodeList, MsgTag, Msg, Timeout) ->
   AppConfig = eh_system_config:get_env(),
@@ -91,3 +94,11 @@ get_columns([Column | T], Acc) ->
   get_columns(T, [{Column, ?STATUS_INACTIVE} | Acc]);
 get_columns([], Acc) ->
   Acc.
+
+multi_combine_columns([N | RNode], [{ObjectType, ObjectId, UpdateColumns, DeleteColumns} | RObject], NodeList, ObjectList) ->
+  Columns = combine_columns(UpdateColumns, DeleteColumns),
+  multi_combine_columns(RNode, RObject, [N | NodeList], [{N, ObjectType, ObjectId, Columns} | ObjectList]);
+multi_combine_columns([], _, NodeList, ObjectList) ->
+  {NodeList, ObjectList};
+multi_combine_columns(_, [], NodeList, ObjectList) ->
+  {NodeList, ObjectList}.

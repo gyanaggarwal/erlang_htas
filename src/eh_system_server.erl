@@ -125,7 +125,7 @@ handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}},
   eh_system_util:reply(From, Ref, Reply),
   {noreply, State};
 
-handle_cast({?EH_UPDATE, {From, Ref, {ObjectType, ObjectId, UpdateData}}},
+handle_cast({?EH_UPDATE, {From, Ref, ObjectList}},
             #eh_system_state{timestamp=Timestamp, node_state=NodeState, successor=Succ, app_config=AppConfig}=State) ->
   NewState9 = case eh_node_state:client_state(NodeState) of
                 ?EH_STATE_TRANSIENT ->
@@ -133,6 +133,7 @@ handle_cast({?EH_UPDATE, {From, Ref, {ObjectType, ObjectId, UpdateData}}},
                 _                   ->
                   Timestamp1 = Timestamp+1,
                   NodeId = eh_system_config:get_node_id(AppConfig),
+                  {NodeId, ObjectType, ObjectId, UpdateData} = lists:keyfind(NodeId, 1, ObjectList),
                   {UMsgKey, UMsgData} = eh_system_util:get_update_msg(ObjectType, 
                                                                       ObjectId,
                                                                       UpdateData,

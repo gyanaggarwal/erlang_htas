@@ -99,7 +99,7 @@
                                  timestamp=0                         :: non_neg_integer(),
                                  repl_ring                           :: list(),
                                  successor                           :: atom(),
-                                 ring_completed_map=maps:new()      :: maps:map(),
+                                 ring_completed_map=maps:new()       :: maps:map(),
                                  msg_data=maps:new()                 :: maps:map(),
                                  pre_msg_data=maps:new()             :: maps:map(),
                                  reference                           :: term(),
@@ -107,9 +107,11 @@
 
 -record(eh_data_state,          {timestamp=0                         :: non_neg_integer(),
                                  transient_timestamp=0               :: non_neg_integer(),
-                                 data_index=0                        :: non_neg_integer(),
+                                 data_index_list=[]                  :: list(),
                                  data=maps:new()                     :: maps:map(),
                                  transient_data=queue:new()          :: queue:queue(),
                                  file                                :: file:io_device(),
                                  app_config                          :: #eh_app_config{}}).
+
+
 

@@ -20,7 +20,7 @@
 
 -export([start_link/0, add_handler/2, delete_handler/2]).
 
--export([data/4, state/3, message/3]).
+-export([data/4, state/3, data_state/3, message/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -38,6 +38,9 @@ event_notify(Tag, Event) ->
 
 state(Module, Msg, State) ->
   event_notify(state, {Module, Msg, State}).
+
+data_state(Module, Msg, State) ->
+  event_notify(data_state, {Module, Msg, State}).
 
 message(Module, Msg, Message) ->
   event_notify(message, {Module, Msg, Message}).
