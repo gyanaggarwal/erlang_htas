@@ -19,6 +19,7 @@
 -module(erlang_htas_test).
 
 -export([run/0, 
+         node_list/0,
          setup_ring/1,
          data_entries/1,
          node_change/1,
@@ -73,6 +74,9 @@ validate_result(Tag, #eh_run_state{active_nodes=ActiveNodes}=State) ->
   eh_test_util:print_run_status(Tag, State1),
   State1.
 
+node_list() ->
+  ?NODE_LIST.
+
 setup_ring(NodeList) ->
   erlang_htas:setup_ring(NodeList).
 
@@ -87,12 +91,13 @@ node_change(NodeList) ->
   State = #eh_run_state{active_nodes=NodeList, test_runs=eh_test_util:get_random(?TEST_RUNS)},
   node_change(undefined, State).
 
-node_change(node_nochange, State) ->
+node_change(?NODE_NOCHANGE, State) ->
   DataEntries = eh_test_util:get_random(?DATA_ENTRIES),
   update(DataEntries, State);
 node_change(_, #eh_run_state{test_runs=TestRuns}=State) ->
   timer:sleep(?NODE_SLEEP_TIME),
   {NodeChange, Node} = eh_test_util:get_node_change(State),
+  print(NodeChange, Node, State),
   State1 = State#eh_run_state{test_runs=max(0, TestRuns-1)},
   State2 = make_node_change(NodeChange, Node, State1),
   node_change(NodeChange, State2).
@@ -105,3 +110,7 @@ validate(NodeList) ->
     false ->
       Result
   end.
+
+print(NodeChange, Node, #eh_run_state{test_runs=TestRuns, active_nodes=ActiveNodes, down_nodes=DownNodes}) ->
+  io:fwrite("node_change=~p, node=~p, test_runs=~p, active_nodes=~p, down_nodes=~p~n", [NodeChange, Node, TestRuns, length(ActiveNodes), length(DownNodes)]).
+ 

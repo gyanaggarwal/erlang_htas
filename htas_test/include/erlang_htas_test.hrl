@@ -27,7 +27,10 @@
                                 'eh_n2@Gyanendras-MacBook-Pro',
                                 'eh_n5@Gyanendras-MacBook-Pro']).
 
--define(NODE_CHANGE,           [node_up, node_down]).
+-define(NODE_NOCHANGE,         node_nochange).
+-define(NODE_UP,               node_up).
+-define(NODE_DOWN,             node_down).
+-define(NODE_CHANGE,           [?NODE_UP, ?NODE_DOWN]).
 
 -define(OBJECT_TYPE,           [person, address, employee]).
 

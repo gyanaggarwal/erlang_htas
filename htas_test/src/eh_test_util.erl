@@ -53,7 +53,7 @@ get_node_change(State) ->
   get_node_change(get_random_nth(?NODE_CHANGE), State).
 
 get_node_change(node_nochange, _) ->
-  {node_nochnage, node};
+  {?NODE_NOCHANGE, node};
 get_node_change(node_down, #eh_run_state{active_nodes=ActiveNodes}) ->
   {node_down, get_random_nth(ActiveNodes)};
 get_node_change(node_up, #eh_run_state{down_nodes=DownNodes}) ->

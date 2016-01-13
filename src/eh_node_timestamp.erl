@@ -31,10 +31,15 @@
 -include("erlang_htas.hrl").
 
 update_state_client_reply(UpdateMsgKey, 
-                          #eh_system_state{ring_completed_map=RingCompletedMap, msg_data=MsgData, app_config=AppConfig}=State) ->
+                          #eh_system_state{successor=Succ, ring_completed_map=RingCompletedMap, msg_data=MsgData, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
   MsgData1 = eh_system_util:remove_map(UpdateMsgKey, MsgData),
-  RingCompletedMap1 = eh_ring_completed_map:add_msg_key(NodeId, UpdateMsgKey, RingCompletedMap),
+  RingCompletedMap1 = case Succ of
+                        undefined ->
+                          RingCompletedMap;
+                        _         ->
+                          eh_ring_completed_map:add_msg_key(NodeId, UpdateMsgKey, RingCompletedMap)
+                      end,
   State#eh_system_state{ring_completed_map=RingCompletedMap1, msg_data=MsgData1}.
 
 update_state_completed_set(CompletedSet, 
