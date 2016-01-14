@@ -24,11 +24,27 @@
          update_state_timestamp/2,
          update_state_msg_data/3,
          update_state_merge_completed_set/2,
+         update_state_add_query_data/5,
+         update_state_remove_query_data/3,
          valid_pre_update_msg/3,
          valid_update_msg/3,
          valid_add_node_msg/2]).
 
 -include("erlang_htas.hrl").
+
+update_state_add_query_data(ObjectType, ObjectId, From, Ref, #eh_system_state{query_data=QueryData}=State) ->
+  Key = {ObjectType, ObjectId},
+  Value = {From, Ref},
+  List1 = case maps:find(Key, QueryData) of
+            error      ->
+              [Value];
+            {ok, List} ->
+              [Value | List]
+          end,
+  State#eh_system_state{query_data=maps:put(Key, List1, QueryData)}.
+
+update_state_remove_query_data(ObjectType, ObjectId, #eh_system_state{query_data=QueryData}=State) ->
+  State#eh_system_state{query_data=maps:remove({ObjectType, ObjectId}, QueryData)}.
 
 update_state_client_reply(UpdateMsgKey, 
                           #eh_system_state{successor=Succ, ring_completed_map=RingCompletedMap, msg_data=MsgData, app_config=AppConfig}=State) ->
@@ -132,7 +148,7 @@ pre_update_conflict_resolver(#eh_update_msg_key{object_type=ObjectType, object_i
       State1 = State#eh_system_state{pre_msg_data=PreMsgData1},
       case EMsgNodeId =:= NodeId of
         true  ->
-          eh_system_util:reply(ClientId, Ref, {EMsgNodeId, ObjectType, ObjectId, ?EH_BEING_UPDATED});
+          eh_query_handler:reply(ClientId, Ref, eh_query_handler:error_being_updated(ObjectType, ObjectId));
         false ->
           ok
       end,

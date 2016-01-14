@@ -22,7 +22,6 @@
          get_node_atom/1,
          get_file_name/3,
          make_list_to_string/2,
-         reply/3,
          get_update_msg/7,
          add_set/2,
          remove_set/2,
@@ -50,9 +49,6 @@ get_node_atom(Node) ->
 -spec get_file_name(NodeName :: string(), DataDir :: string(), FileName :: string()) -> string().
 get_file_name(NodeName, DataDir, FileName) ->
   DataDir ++ NodeName ++ FileName.
-
-reply(From, Ref, Reply) ->
-  From ! {reply, Ref, Reply}.
 
 make_list_to_string(Fun, List) ->
   lists:foldl(fun(N, Acc) -> case length(Acc) of

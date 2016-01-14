@@ -59,6 +59,7 @@
                                  storage_data                        :: atom(),
                                  write_conflict_resolver             :: atom(),
                                  unique_id_generator                 :: atom(),
+                                 query_handler                       :: atom(),
                                  file_repl_data                      :: string(),
                                  debug_mode=false                    :: true | false,
                                  sup_restart_intensity               :: non_neg_integer(),
@@ -102,6 +103,7 @@
                                  ring_completed_map=maps:new()       :: maps:map(),
                                  msg_data=maps:new()                 :: maps:map(),
                                  pre_msg_data=maps:new()             :: maps:map(),
+                                 query_data=maps:new()               :: maps:map(),
                                  reference                           :: term(),
                                  app_config                          :: #eh_app_config{}}).
 

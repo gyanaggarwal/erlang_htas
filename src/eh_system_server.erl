@@ -111,27 +111,27 @@ handle_cast({?EH_UPDATE_SNAPSHOT, _}, State) ->
 handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}}, 
             #eh_system_state{pre_msg_data=PreMsgData, node_state=NodeState, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
-  Reply = case eh_node_state:data_state(NodeState) of
-            ?EH_STATE_TRANSIENT ->
-              {error, {NodeId, ?EH_NODE_UNAVAILABLE}};
-            _                   ->  
-              case eh_system_util:exist_map_msg(ObjectType, ObjectId, PreMsgData) of
-                false ->
-                  ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
-                  {ok, ReplDataManager:query({ObjectType, ObjectId})};
-                true  ->
-                  {error, {ObjectType, ObjectId, ?EH_BEING_UPDATED}}
-              end
-          end,
-  eh_system_util:reply(From, Ref, Reply),
-  {noreply, State};
+  State1 = case eh_node_state:data_state(NodeState) of
+             ?EH_STATE_TRANSIENT ->
+               eh_query_handler:reply(From, Ref, eh_query_handler:error_node_unavailable(NodeId)),
+               State;
+             _                   ->  
+               case eh_system_util:exist_map_msg(ObjectType, ObjectId, PreMsgData) of
+                 false ->
+                    eh_query_handler:query(ObjectType, ObjectId, From, Ref, State);
+                 true  -> 
+                    QueryHandler = eh_system_config:get_query_handler(AppConfig),
+                    QueryHandler:process(ObjectType, ObjectId, From, Ref, State)
+               end
+           end,
+  {noreply, State1};
 
 handle_cast({?EH_UPDATE, {From, Ref, ObjectList}},
             #eh_system_state{timestamp=Timestamp, node_state=NodeState, successor=Succ, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
   NewState9 = case eh_node_state:client_state(NodeState) of
                 ?EH_STATE_TRANSIENT ->
-                  eh_system_util:reply(From, Ref, {error, {NodeId, ?EH_NODE_UNAVAILABLE}}),
+                  eh_query_handler:reply(From, Ref, eh_query_handler:error_node_unavailable(NodeId)),
                   State;
                 _                   ->
                   Timestamp1 = Timestamp+1,
@@ -234,32 +234,34 @@ event_data(Msg, DataMsg, Data) ->
 
 persist_data(#eh_update_msg_key{timestamp=Timestamp, object_type=ObjectType, object_id=ObjectId}, 
              #eh_update_msg_data{update_data=UpdateData}, 
-             #eh_system_state{node_state=NodeState, app_config=AppConfig}) ->
+             #eh_system_state{node_state=NodeState, app_config=AppConfig}=State) ->
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
-  ReplDataManager:update(eh_node_state:data_state(NodeState), Timestamp, {ObjectType, ObjectId, UpdateData}).
+  ReplDataManager:update(eh_node_state:data_state(NodeState), Timestamp, {ObjectType, ObjectId, UpdateData}),
+  eh_query_handler:process_pending(ObjectType, ObjectId, State).
 
-no_persist_data(_, _, _) ->
-  ok.
+no_persist_data(_, _, State) ->
+  State.
 
 reply_to_client(PersistFun,
                 #eh_update_msg_key{object_type=ObjectType, object_id=ObjectId}=UMsgKey, 
                 #eh_update_msg_data{client_id=ClientId, reference=Ref}=UMsgData,
                 State) -> 
-  PersistFun(UMsgKey, UMsgData, State),
-  eh_system_util:reply(ClientId, Ref, {ObjectType, ObjectId, ?EH_UPDATED}),
-  eh_node_timestamp:update_state_client_reply(UMsgKey, State).
+  State1 = PersistFun(UMsgKey, UMsgData, State),
+  eh_query_handler:reply(ClientId, Ref, eh_query_handler:updated(ObjectType, ObjectId)),
+  eh_node_timestamp:update_state_client_reply(UMsgKey, State1).
 
 send_msg(Tag, 
          PersistFun,
          #eh_update_msg_key{timestamp=MsgTimestamp}=UMsgKey, 
          #eh_update_msg_data{node_id=MsgNodeId}=UMsgData,
          #eh_system_state{successor=Succ, repl_ring=ReplRing}=State) ->
-  PersistFun(UMsgKey, UMsgData, State),
-  State1 = eh_node_timestamp:update_state_timestamp(MsgTimestamp, State),
-  State2 = eh_node_timestamp:update_state_new_msg(Tag, UMsgKey, UMsgData, State1),
+  State1 = PersistFun(UMsgKey, UMsgData, State),
+  State2 = eh_node_timestamp:update_state_timestamp(MsgTimestamp, State1),
+  State3 = eh_node_timestamp:update_state_new_msg(Tag, UMsgKey, UMsgData, State2),
   OriginNodeId = eh_repl_ring:originating_node_id(MsgNodeId, ReplRing),
-  gen_server:cast({?EH_SYSTEM_SERVER, Succ}, {Tag, {UMsgKey, UMsgData, eh_ring_completed_map:get_completed_set(OriginNodeId, State2#eh_system_state.ring_completed_map)}}),
-  State2.  
+  gen_server:cast({?EH_SYSTEM_SERVER, Succ}, 
+                  {Tag, {UMsgKey, UMsgData, eh_ring_completed_map:get_completed_set(OriginNodeId, State3#eh_system_state.ring_completed_map)}}),
+  State3.  
 
 send_pre_update_msg(PersistFun,
                     UMsgKey,
