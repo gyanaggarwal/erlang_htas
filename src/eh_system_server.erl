@@ -189,6 +189,7 @@ handle_cast({?EH_PRED_UPDATE, {#eh_update_msg_key{timestamp=MsgTimestamp}=UMsgKe
   {noreply, NewState8};
 
 handle_cast({stop, Reason}, State) ->
+  event_data("handle_cast.stop.00", status, stopped),
   {stop, Reason, State};
 
 handle_cast(_Msg, State) ->
@@ -199,7 +200,7 @@ handle_info(Msg, #eh_system_state{repl_ring=ReplRing, successor=Succ, app_config
   FailureDetector = eh_system_config:get_failure_detector(AppConfig),
   NewState9 = case FailureDetector:detect(Msg) of
                 {?EH_NODEDOWN, DownNode} ->
-                  event_data("handle_info.01", "failure", {?EH_NODEDOWN, eh_system_util:get_node_name(DownNode)}),
+                  event_data("handle_info.01", failure, {?EH_NODEDOWN, eh_system_util:get_node_name(DownNode)}),
                   NodeId = eh_system_config:get_node_id(AppConfig),
                   NewReplRing = eh_repl_ring:drop(DownNode, ReplRing),
                   NewSucc = eh_repl_ring:successor(NodeId, NewReplRing),
