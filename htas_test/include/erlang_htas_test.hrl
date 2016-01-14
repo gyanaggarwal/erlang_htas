@@ -17,10 +17,10 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(TEST_RUNS,             {8, 12}).
--define(DATA_ENTRIES,          {10, 20}).
--define(BULK_DATA_ENTRIES,     {600, 1000}).
+-define(DATA_ENTRIES,          {5, 10}).
+-define(BULK_DATA_ENTRIES,     {400, 500}).
 
--define(ENTRY_SLEEP_TIME,      100).
+-define(ENTRY_SLEEP_TIME,      200).
 -define(NODE_SLEEP_TIME,       5000).
 
 -define(NODE_LIST,             ['eh_n1@Gyanendras-MacBook-Pro', 

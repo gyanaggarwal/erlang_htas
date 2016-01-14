@@ -27,7 +27,8 @@
          delete/3,
          update/5,
          multi_update/2,
-         data_view/1]).
+         data_view/1,
+         validate/1]).
 
 -include("erlang_htas.hrl").
 
@@ -40,6 +41,15 @@ stop() ->
 data_view(NodeList) ->
   {Replies, _} = gen_server:multi_call(NodeList, ?EH_SYSTEM_SERVER, ?EH_DATA_VIEW),
   Replies.
+
+validate(NodeList) ->
+  Result = data_view(NodeList),
+  case eh_system_util:valid_result(Result) of
+    true  ->
+      valid;
+    false ->
+      Result
+  end.
 
 setup_ring(NodeList) ->
   gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, ?EH_SETUP_RING).

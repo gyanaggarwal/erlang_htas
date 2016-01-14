@@ -22,7 +22,6 @@
          get_random_nth/1,
          get_update_param/1,
          get_node_change/1,
-         valid_result/1,
          print_run_status/2]).
 
 -include("erlang_htas_test.hrl").
@@ -36,35 +35,28 @@ get_random_nth(List) ->
   N = get_random({0, length(List)}),
   lists:nth(N, List).
 
-get_update_param(#eh_run_state{active_nodes=ActiveNodes}) ->
+get_update_param(ActiveNodes) ->
   {get_random_nth(ActiveNodes), get_random_nth(?OBJECT_TYPE), get_random_nth(?OBJECT_ID), [{get_random_nth(?COLUMNS), get_random_nth(?VALUES)}]}.
 
 get_node_change(#eh_run_state{valid_result=false}=State) ->
-  get_node_change(node_nochange, State);
+  get_node_change(?NODE_NOCHANGE, State);
 get_node_change(#eh_run_state{test_runs=0, down_nodes=[]}=State) ->
-  get_node_change(node_nochange, State);
+  get_node_change(?NODE_NOCHANGE, State);
 get_node_change(#eh_run_state{test_runs=0}=State) ->
-  get_node_change(node_up, State);
+  get_node_change(?NODE_UP, State);
 get_node_change(#eh_run_state{active_nodes=ActiveNodes}=State) when length(ActiveNodes) =:= length(?NODE_LIST) ->
-  get_node_change(node_down, State);
+  get_node_change(?NODE_DOWN, State);
 get_node_change(#eh_run_state{active_nodes=ActiveNodes}=State) when length(ActiveNodes) =:= 1 ->
-  get_node_change(node_up, State);
+  get_node_change(?NODE_UP, State);
 get_node_change(State) ->
   get_node_change(get_random_nth(?NODE_CHANGE), State).
 
-get_node_change(node_nochange, _) ->
-  {?NODE_NOCHANGE, node};
-get_node_change(node_down, #eh_run_state{active_nodes=ActiveNodes}) ->
-  {node_down, get_random_nth(ActiveNodes)};
-get_node_change(node_up, #eh_run_state{down_nodes=DownNodes}) ->
-  {node_up, get_random_nth(DownNodes)}.
-
-valid_result([]) ->
-  true;
-valid_result([_H | []]) ->
-  true;
-valid_result([{_, R0} | Rest]) ->
-  lists:all(fun({_, RX}) -> R0 =:= RX end, Rest). 
+get_node_change(?NODE_NOCHANGE, _) ->
+  {?NODE_NOCHANGE, undefined};
+get_node_change(?NODE_DOWN, #eh_run_state{active_nodes=ActiveNodes}) ->
+  {?NODE_DOWN, get_random_nth(ActiveNodes)};
+get_node_change(?NODE_UP, #eh_run_state{down_nodes=DownNodes}) ->
+  {?NODE_UP, get_random_nth(DownNodes)}.
 
 print(MsgTag, true, RunNum, ActiveNodes, DownNodes) ->
   io:fwrite("run_num=~p succeeded [~p] active_nodes=~p down_nodes=~p~n", [RunNum, MsgTag, ActiveNodes, DownNodes]);

@@ -20,10 +20,8 @@
 
 -export([run/0, 
          node_list/0,
-         setup_ring/1,
          data_entries/1,
-         node_change/1,
-         validate/1]).
+         node_change/1]).
 
 -include("erlang_htas_test.hrl").
 
@@ -49,36 +47,33 @@ run_test(#eh_run_state{test_runs=TestRuns,
   timer:sleep(2000),
   State4 = validate_result(NodeChange, State3),
   run_test(State4).
-  
+
+validate_result(Tag, #eh_run_state{active_nodes=ActiveNodes}=State) ->
+  Result = erlang_htas:data_view(ActiveNodes),
+  State1 = State#eh_run_state{curr_result=Result, valid_result=eh_system_util:valid_result(Result)},
+  eh_test_util:print_run_status(Tag, State1),
+  State1.
+
 update(0, _State) ->
   ok;
-update(DataEntries, State) ->
+update(DataEntries, #eh_run_state{active_nodes=ActiveNodes}=State) ->
   timer:sleep(?ENTRY_SLEEP_TIME),
-  {Node, ObjectType, ObjectId, Columns} = eh_test_util:get_update_param(State),
+  {Node, ObjectType, ObjectId, Columns} = eh_test_util:get_update_param(ActiveNodes),
   erlang_htas:update(Node, ObjectType, ObjectId, Columns, []),
   update(DataEntries-1, State).
 
-make_node_change(node_down, Node, #eh_run_state{active_nodes=ActiveNodes, down_nodes=DownNodes}=State) ->
+make_node_change(?NODE_DOWN, Node, #eh_run_state{active_nodes=ActiveNodes, down_nodes=DownNodes}=State) ->
   erlang_htas:stop(Node, normal),
   State#eh_run_state{active_nodes=lists:delete(Node, ActiveNodes), down_nodes=[Node | DownNodes]};
-make_node_change(node_up, Node, #eh_run_state{active_nodes=ActiveNodes, down_nodes=DownNodes}=State) ->
+make_node_change(?NODE_UP, Node, #eh_run_state{active_nodes=ActiveNodes, down_nodes=DownNodes}=State) ->
   ActiveNodes1 = [Node | ActiveNodes],
   erlang_htas:add_node(Node, ActiveNodes1),
   State#eh_run_state{active_nodes=ActiveNodes1, down_nodes=lists:delete(Node, DownNodes)};
 make_node_change(_, _, State) ->
   State.
 
-validate_result(Tag, #eh_run_state{active_nodes=ActiveNodes}=State) ->
-  Result = erlang_htas:data_view(ActiveNodes),
-  State1 = State#eh_run_state{curr_result=Result, valid_result=eh_test_util:valid_result(Result)},
-  eh_test_util:print_run_status(Tag, State1),
-  State1.
-
 node_list() ->
   ?NODE_LIST.
-
-setup_ring(NodeList) ->
-  erlang_htas:setup_ring(NodeList).
 
 data_entries(NodeList) ->
   random:seed(erlang:phash2([node()]), erlang:monotonic_time(), erlang:unique_integer()),
@@ -89,27 +84,25 @@ data_entries(NodeList) ->
 node_change(NodeList) ->
   random:seed(erlang:phash2([node()]), erlang:monotonic_time(), erlang:unique_integer()),
   State = #eh_run_state{active_nodes=NodeList, test_runs=eh_test_util:get_random(?TEST_RUNS)},
-  node_change(undefined, State).
+  do_node_change(State).
 
-node_change(?NODE_NOCHANGE, State) ->
-  DataEntries = eh_test_util:get_random(?DATA_ENTRIES),
-  update(DataEntries, State);
-node_change(_, #eh_run_state{test_runs=TestRuns}=State) ->
+
+do_node_change(#eh_run_state{test_runs=0, down_nodes=[]}) ->
+  ok;
+do_node_change(#eh_run_state{test_runs=TestRuns}=State) ->
   timer:sleep(?NODE_SLEEP_TIME),
+  case TestRuns =:= 0 of
+    true  ->
+      DataEntries = eh_test_util:get_random(?DATA_ENTRIES),
+      update(DataEntries, State);
+    false ->
+      ok
+  end,
   {NodeChange, Node} = eh_test_util:get_node_change(State),
   print(NodeChange, Node, State),
   State1 = State#eh_run_state{test_runs=max(0, TestRuns-1)},
   State2 = make_node_change(NodeChange, Node, State1),
-  node_change(NodeChange, State2).
-
-validate(NodeList) ->
-  Result = erlang_htas:data_view(NodeList),
-  case eh_test_util:valid_result(Result) of
-    true  ->
-      valid;
-    false ->
-      Result
-  end.
+  do_node_change(State2).
 
 print(NodeChange, Node, #eh_run_state{test_runs=TestRuns, active_nodes=ActiveNodes, down_nodes=DownNodes}) ->
   io:fwrite("node_change=~p, node=~p, test_runs=~p, active_nodes=~p, down_nodes=~p~n", [NodeChange, Node, TestRuns, length(ActiveNodes), length(DownNodes)]).

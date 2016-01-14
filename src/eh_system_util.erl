@@ -34,7 +34,8 @@
          remove_map/2,
          get_map_timestamp/1,
          is_key_map/2,
-         exist_map_msg/3]).
+         exist_map_msg/3,
+         valid_result/1]).
 
 -include("erlang_htas.hrl").
 
@@ -96,6 +97,13 @@ get_map_timestamp(Map) ->
 exist_map_msg(ObjectType, ObjectId, Map) ->
   maps:fold(fun(#eh_update_msg_key{object_type=XOT, object_id=XOI}, _, Acc) -> Acc orelse (ObjectType =:= XOT andalso ObjectId =:= XOI) end, false, Map).
  
+valid_result([]) ->
+  true;
+valid_result([_H | []]) ->
+  true;
+valid_result([{_, R0} | Rest]) ->
+  lists:all(fun({_, RX}) -> R0 =:= RX end, Rest).
+
 
 
 
