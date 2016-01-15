@@ -20,6 +20,7 @@
 
 -export([reply/3,
          error_node_unavailable/1,
+         error_node_down/1,
          error_being_updated/2,
          updated/2,
          query/5,
@@ -32,20 +33,29 @@
 reply(From, Ref, Reply) ->
   From ! {reply, Ref, Reply}.
 
+error_node_down(NodeId) ->
+  error_node(NodeId, ?EH_NODEDOWN).
+
 error_node_unavailable(NodeId) ->
-  {error, node_tuple(NodeId, ?EH_NODE_UNAVAILABLE)}.
+  error_node(NodeId, ?EH_NODE_UNAVAILABLE).
 
 error_being_updated(ObjectType, ObjectId) -> 
-  {error, object_tuple(ObjectType, ObjectId, ?EH_BEING_UPDATED)}.
+  object(error, ObjectType, ObjectId, ?EH_BEING_UPDATED).
 
 updated(ObjectType, ObjectId) ->
-  object_tuple(ObjectType, ObjectId, ?EH_UPDATED).
+  object(ok, ObjectType, ObjectId, ?EH_UPDATED).
  
 object_tuple(ObjectType, ObjectId, Msg) ->
   {ObjectType, ObjectId, Msg}.
 
 node_tuple(NodeId, Msg) ->
   {NodeId, Msg}.
+
+error_node(NodeId, Msg) ->
+  {error, node_tuple(NodeId, Msg)}.
+
+object(Tag, ObjectType, ObjectId, Msg) ->
+  {Tag, object_tuple(ObjectType, ObjectId, Msg)}.
 
 query(ObjectType, ObjectId, From, Ref, #eh_system_state{app_config=AppConfig}=State) ->
   reply(From, Ref, {ok, query_reply(ObjectType, ObjectId, AppConfig)}),

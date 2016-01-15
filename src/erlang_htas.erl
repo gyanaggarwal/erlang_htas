@@ -89,7 +89,7 @@ receive_msg(Ref, Timeout, [Node | RNodeList], Acc) ->
              {reply, Ref, Reply} ->
                Reply
            after Timeout ->
-             {error, {?EH_NODEDOWN, Node}}
+             eh_query_handler:error_node_down(Node)
            end,
   receive_msg(Ref, Timeout, RNodeList, [Reply1 | Acc]);
 receive_msg(_Ref, _Timeout, [], Acc) ->

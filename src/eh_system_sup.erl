@@ -43,8 +43,8 @@ init([]) ->
   Data  = {eh_data_server, {eh_data_server, start_link, [AppConfig]},
            permanent, ChildShutdown, worker, [eh_data_server]},
  
-  Childern        = [Htas, Data],
-  RestartStrategy = {one_for_all, RestartIntensity, RestartPeriod},
+  Childern        = [Data, Htas],
+  RestartStrategy = {rest_for_one, RestartIntensity, RestartPeriod},
 
   {ok, {RestartStrategy, Childern}}.
 
