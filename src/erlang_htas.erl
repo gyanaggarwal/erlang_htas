@@ -20,7 +20,7 @@
 
 -export([start/0, 
          stop/0,
-         stop/2,
+         stop/1,
          setup_ring/1,
          add_node/2,
          query/3,
@@ -59,8 +59,8 @@ setup_ring(NodeList) ->
 add_node(Node, NodeList) ->
   gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, {?EH_ADD_NODE, {Node, NodeList}}).
 
-stop(Node, Reason) ->
-  gen_server:cast({?EH_SYSTEM_SERVER, Node}, {stop, Reason}).
+stop(Node) ->
+  gen_server:cast({?EH_SYSTEM_SERVER, Node}, {stop, normal}).
 
 query(Node, ObjectType, ObjectId) ->
   send([Node], ?EH_QUERY, {ObjectType, ObjectId}, ?READ_TIMEOUT).

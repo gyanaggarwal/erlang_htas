@@ -161,7 +161,7 @@ handle_cast({?EH_PRED_PRE_UPDATE, {UMsgKey, #eh_update_msg_data{node_id=MsgNodeI
                   event_message("pred_pre_update.duplicate_msg", UMsgKey),
                   NewState1;
                 {true, ?EH_RETURNED_MSG, NewState1} ->
-                  event_message("pred_pre_update.valid_returned_msg", UMsgKey),
+                  event_message("pred_pre_update.valid_returned_msg", UMsgKey, UMsgData, CompletedSet),
                   NewState2 = eh_node_timestamp:update_state_completed_set(CompletedSet, NewState1),
                   send_update_msg(fun persist_data/3, UMsgKey, UMsgData, NewState2);
                 {true, _, NewState1}                ->
@@ -180,7 +180,7 @@ handle_cast({?EH_PRED_UPDATE, {#eh_update_msg_key{timestamp=MsgTimestamp}=UMsgKe
                   event_message("pred_update.duplicate_msg", UMsgKey),
                   NewState1;
                 {true, ?EH_RETURNED_MSG, NewState1} ->
-                  event_message("pred_update.valid_returned_msg", UMsgKey),
+                  event_message("pred_update.valid_returned_msg", UMsgKey, UMsgData, CompletedSet),
                   NewState2 = eh_node_timestamp:update_state_completed_set(CompletedSet, NewState1),
                   NewState3 = eh_node_timestamp:update_state_timestamp(MsgTimestamp, NewState2),
                   reply_to_client(fun no_persist_data/3, UMsgKey, UMsgData, NewState3);
@@ -193,7 +193,7 @@ handle_cast({?EH_PRED_UPDATE, {#eh_update_msg_key{timestamp=MsgTimestamp}=UMsgKe
   {noreply, NewState8};
 
 handle_cast({stop, Reason}, State) ->
-  event_data("handle_cast.stop.00", status, stopped),
+  event_data("stop", status, stopped),
   {stop, Reason, State};
 
 handle_cast(_Msg, State) ->
