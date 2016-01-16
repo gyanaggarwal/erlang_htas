@@ -25,6 +25,8 @@
          add_node/2,
          query/3,
          delete/3,
+         delete/4,
+         update/4,
          update/5,
          multi_update/2,
          data_view/1,
@@ -64,13 +66,19 @@ query(Node, ObjectType, ObjectId) ->
   send([Node], ?EH_QUERY, {ObjectType, ObjectId}, ?READ_TIMEOUT).
 
 delete(Node, ObjectType, ObjectId) ->
-  update(Node, ObjectType, ObjectId, ?STATUS_INACTIVE).
+  send_update(Node, ObjectType, ObjectId, ?STATUS_INACTIVE).
+
+delete(Node, ObjectType, ObjectId, DeleteColumns) ->
+  update(Node, ObjectType, ObjectId, [], DeleteColumns).
+
+update(Node, ObjectType, ObjectId, UpdateColumns) ->
+  update(Node, ObjectType, ObjectId, UpdateColumns, []).
 
 update(Node, ObjectType, ObjectId, UpdateColumns, DeleteColumns) ->
   Columns = combine_columns(UpdateColumns, DeleteColumns),
-  update(Node, ObjectType, ObjectId, Columns).
+  send_update(Node, ObjectType, ObjectId, Columns).
 
-update(Node, ObjectType, ObjectId, Columns) ->
+send_update(Node, ObjectType, ObjectId, Columns) ->
   send([Node], ?EH_UPDATE, [{Node, ObjectType, ObjectId, Columns}], ?UPDATE_TIMEOUT).
   
 multi_update(NodeList, ObjectList) ->
@@ -78,6 +86,7 @@ multi_update(NodeList, ObjectList) ->
   send(NodeList1, ?EH_UPDATE, ObjectList1, ?UPDATE_TIMEOUT).
 
 send(NodeList, MsgTag, Msg, Timeout) ->
+  flush_msg(),
   AppConfig = eh_system_config:get_env(),
   UniqueIdGenerator = eh_system_config:get_unique_id_generator(AppConfig),
   Ref = UniqueIdGenerator:unique_id(),
@@ -95,6 +104,14 @@ receive_msg(Ref, Timeout, [Node | RNodeList], Acc) ->
 receive_msg(_Ref, _Timeout, [], Acc) ->
   Acc.
 
+flush_msg() ->
+  receive
+    _Msg ->
+      ok
+    after 0 ->
+      ok 
+  end.
+
 combine_columns(UpdateColumns, DeleteColumns) ->
   get_columns(lists:reverse(UpdateColumns), get_columns(lists:reverse(DeleteColumns), [])).
 
@@ -105,6 +122,9 @@ get_columns([Column | T], Acc) ->
 get_columns([], Acc) ->
   Acc.
 
+multi_combine_columns([N | RNode], [{ObjectType, ObjectId, UpdateColumns} | RObject], NodeList, ObjectList) ->
+  Columns = combine_columns(UpdateColumns, []),
+  multi_combine_columns(RNode, RObject, [N | NodeList], [{N, ObjectType, ObjectId, Columns} | ObjectList]);
 multi_combine_columns([N | RNode], [{ObjectType, ObjectId, UpdateColumns, DeleteColumns} | RObject], NodeList, ObjectList) ->
   Columns = combine_columns(UpdateColumns, DeleteColumns),
   multi_combine_columns(RNode, RObject, [N | NodeList], [{N, ObjectType, ObjectId, Columns} | ObjectList]);

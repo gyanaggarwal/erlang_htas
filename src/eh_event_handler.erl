@@ -57,40 +57,76 @@ handle_event({state, {Module, Msg, StateData=#eh_system_state{}}}, State) ->
   Timestamp = StateData#eh_system_state.timestamp,
   NodeState = eh_node_state:client_state(StateData#eh_system_state.node_state),
   ReplRing = eh_system_util:make_list_to_string(fun eh_system_util:get_node_name/1, StateData#eh_system_state.repl_ring),
-  PreMsgData = eh_system_util:make_list_to_string(fun erlang:integer_to_list/1, eh_system_util:get_map_timestamp(StateData#eh_system_state.pre_msg_data)),
-  MsgData = eh_system_util:make_list_to_string(fun erlang:integer_to_list/1, eh_system_util:get_map_timestamp(StateData#eh_system_state.msg_data)),
-  RCMap = get_ring_completed_map(StateData#eh_system_state.ring_completed_map),
+  PreMsgData = list_msg_map(StateData#eh_system_state.pre_msg_data),
+  MsgData = list_msg_map(StateData#eh_system_state.msg_data),
+  RCMap = list_completed_map(StateData#eh_system_state.ring_completed_map),
   io:fwrite("[~p] ~p node_state=~p, node_id=~p, repl_ring=~p, successor=~p, timestamp=~p, pre_msg_data=~p, msg_data=~p, ring_completed_map=~p~n~n",
             [Module, Msg, NodeState, NodeId, ReplRing, Successor, Timestamp, PreMsgData, MsgData, RCMap]),
   {ok, State};
 
-handle_event({message, {Module, Msg, {#eh_update_msg_key{object_type=ObjectType, object_id=ObjectId, timestamp=Timestamp}, #eh_update_msg_data{node_id=NodeId}, CompletedSet}}}, State) ->
- RCSet = eh_system_util:make_list_to_string(fun erlang:integer_to_list/1, eh_system_util:get_set_timestamp(CompletedSet)),
- io:fwrite("[~p], ~p node_id=~p, timestamp=~p, object_type=~p, object_id=~p, completed_set=~p~n",
-            [Module, Msg, NodeId, Timestamp, ObjectType, ObjectId, RCSet]),
+handle_event({message, {Module, Msg, {UMsgKey, #eh_update_msg_data{node_id=NodeId}, CompletedSet}}}, State) ->
+  RCSet = list_msg_set_value(CompletedSet),
+  io:fwrite("[~p] ~p message=~p, completed_set=~p~n",
+             [Module, Msg, list_msg(UMsgKey, NodeId), RCSet]),
+  {ok, State};
+
+handle_event({message, {Module, Msg, UMsgKey}}, State) ->
+  io:fwrite("[~p] ~p message=~p~n",
+             [Module, Msg, list_msg_key(UMsgKey)]),
   {ok, State};
 
 handle_event({data, {Module, Msg, DataMsg, Data}}, State) ->
   io:fwrite("[~p] ~p ~p=~p~n", [Module, Msg, DataMsg, Data]),
   {ok, State}.
 
-get_ring_completed_map(RingCompletedMap) ->
-  maps:fold(fun(K, V, Acc) -> ring_completed_set(completed_set(K, V), Acc) end, [], RingCompletedMap).
+is_listable_value(Value) ->
+  is_atom(Value) orelse is_integer(Value) orelse is_float(Value) orelse is_list(Value).
 
-completed_set(NodeId, CompletedSet) ->
-  case sets:size(CompletedSet) of
-    0 ->
-      "";
-    _ ->
-      eh_system_util:get_node_name(NodeId) ++ "=>" ++ eh_system_util:make_list_to_string(fun erlang:integer_to_list/1, eh_system_util:get_set_timestamp(CompletedSet))
+is_listable_msg_key(#eh_update_msg_key{timestamp=Timestamp, object_type=ObjectType, object_id=ObjectId}) ->
+  is_listable_value(Timestamp) andalso is_listable_value(ObjectType) andalso is_listable_value(ObjectId).
+
+list_value(Value) when is_list(Value) ->
+  Value;
+list_value(Value) when is_atom(Value) ->
+  atom_to_list(Value);
+list_value(Value) when is_integer(Value) ->
+  integer_to_list(Value);
+list_value(Value) when is_float(Value) ->
+  float_to_list(Value).
+
+list_msg_key(#eh_update_msg_key{timestamp=Timestamp, object_type=ObjectType, object_id=ObjectId}=UMsgKey) ->
+  case is_listable_msg_key(UMsgKey) of
+     true  ->
+       "{"++list_value(Timestamp)++","++list_value(ObjectType)++","++list_value(ObjectId)++"}";
+     false ->
+       list_value(Timestamp)
   end.
 
-ring_completed_set(Data, Acc) when length(Data) =:= 0 ->
-  Acc;
-ring_completed_set(Data, Acc) when length(Acc) =:= 0 ->
-  Data;
-ring_completed_set(Data, Acc) ->
-  Acc ++ "," ++ Data.
+list_node_msg(NodeId, MsgValue) ->
+  eh_system_util:get_node_name(NodeId)++"=>"++MsgValue.
+
+list_msg(UMsgKey, MsgNodeId) ->
+  list_node_msg(MsgNodeId, list_msg_key(UMsgKey)).
+
+list_msg_set(Set, MsgNodeId) ->
+  list_node_msg(MsgNodeId, list_msg_set_value(Set)).
+
+add_list(List, Acc) when length(Acc) =:= 0 ->
+  Acc++List;
+add_list(List, Acc) ->
+  Acc++","++List.
+
+list_msg_set_value(Set) ->
+  sets:fold(fun(MsgKey, Acc) -> add_list(list_msg_key(MsgKey), Acc) end, [], Set).
+
+list_msg_map(Map) ->
+  maps:fold(fun(MsgKey, #eh_update_msg_data{node_id=NodeId}, Acc) -> add_list(list_msg(MsgKey, NodeId), Acc) end, [], Map).
+
+list_completed_map(Map) ->
+  maps:fold(fun(NodeId, Set, Acc) -> add_list(list_msg_set(Set, NodeId), Acc) end, [], Map).
+
+
+
 
 
 

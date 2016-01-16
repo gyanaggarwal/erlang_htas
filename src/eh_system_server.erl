@@ -58,12 +58,12 @@ handle_cast(?EH_SETUP_RING,
   FailureDetector:set(NodeId, ReplRing),
   {Timestamp, _} = ReplDataManager:timestamp(),
   NewState2 = State#eh_system_state{timestamp=Timestamp, node_state=eh_node_state:state(NodeState)},
-  event_state("handle_cast.eh_setup_ring.99", NewState2),
+  event_state("setup_ring.99", NewState2),
   {noreply, NewState2};
 
 handle_cast({?EH_ADD_NODE, {Node, NodeList}}, 
             #eh_system_state{repl_ring=ReplRing, app_config=AppConfig}=State) ->
-  event_state("handle_cast.eh_add_node.00", State),
+  event_state("add_node.00", State),
   FailureDetector = eh_system_config:get_failure_detector(AppConfig),
   NewState2 = case eh_node_timestamp:valid_add_node_msg(Node, State) of
                 ?EH_VALID_FOR_NEW      ->
@@ -86,7 +86,7 @@ handle_cast({?EH_ADD_NODE, {Node, NodeList}},
                 _                      ->
                   State
               end,
-  event_state("handle_cast.eh_add_node.99", NewState2),
+  event_state("add_node.99", NewState2),
   {noreply, NewState2};
 
 handle_cast({?EH_SNAPSHOT, {From, Ref, {Timestamp, DataIndex}}}, 
@@ -94,7 +94,7 @@ handle_cast({?EH_SNAPSHOT, {From, Ref, {Timestamp, DataIndex}}},
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   Q0 = ReplDataManager:snapshot(Timestamp, DataIndex),
   gen_server:cast(From, {?EH_UPDATE_SNAPSHOT, {Ref, Q0}}),  
-  event_state("handle_cast.eh_snapshot.99", State),
+  event_state("snapshot.99", State),
   {noreply, State};
 
 handle_cast({?EH_UPDATE_SNAPSHOT, {Ref, Q0}}, 
@@ -102,7 +102,7 @@ handle_cast({?EH_UPDATE_SNAPSHOT, {Ref, Q0}},
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   ReplDataManager:update_snapshot(Q0),
   NewState2 = State#eh_system_state{node_state=eh_node_state:update_snapshot(NodeState)},
-  event_state("handle_cast.eh_snapshot.99", NewState2),
+  event_state("update_snapshot.99", NewState2),
   {noreply, NewState2};
 
 handle_cast({?EH_UPDATE_SNAPSHOT, _}, State) ->
@@ -151,41 +151,45 @@ handle_cast({?EH_UPDATE, {From, Ref, ObjectList}},
                       send_pre_update_msg(fun no_persist_data/3, UMsgKey, UMsgData, State)
                   end                            
               end,
-  event_state("handle_cast.eh_update.99", NewState9),
+  event_state("update.99", NewState9),
   {noreply, NewState9};
 
 handle_cast({?EH_PRED_PRE_UPDATE, {UMsgKey, #eh_update_msg_data{node_id=MsgNodeId}=UMsgData, CompletedSet}}, 
             #eh_system_state{node_state=NodeState}=State) ->
-  event_message("handle_cast.eh_pred_pre_update.00", UMsgKey, UMsgData, CompletedSet),
-  NewState7 = case eh_node_timestamp:valid_pre_update_msg(UMsgKey, UMsgData, State) of
+   NewState7 = case eh_node_timestamp:valid_pre_update_msg(UMsgKey, UMsgData, State) of
                 {false, _, NewState1}               ->
+                  event_message("pred_pre_update.duplicate_msg", UMsgKey),
                   NewState1;
                 {true, ?EH_RETURNED_MSG, NewState1} ->
-                   NewState2 = eh_node_timestamp:update_state_completed_set(CompletedSet, NewState1),
-                   send_update_msg(fun persist_data/3, UMsgKey, UMsgData, NewState2);
+                  event_message("pred_pre_update.valid_returned_msg", UMsgKey),
+                  NewState2 = eh_node_timestamp:update_state_completed_set(CompletedSet, NewState1),
+                  send_update_msg(fun persist_data/3, UMsgKey, UMsgData, NewState2);
                 {true, _, NewState1}                ->
-                   NewState2 = eh_node_timestamp:update_state_msg_data(MsgNodeId, CompletedSet, NewState1),
-                   send_pre_update_msg(fun no_persist_data/3, UMsgKey, UMsgData, NewState2)
+                  event_message("pred_pre_update.valid_pred_msg", UMsgKey, UMsgData, CompletedSet),
+                  NewState2 = eh_node_timestamp:update_state_msg_data(MsgNodeId, CompletedSet, NewState1),
+                  send_pre_update_msg(fun no_persist_data/3, UMsgKey, UMsgData, NewState2)
               end,
   NewState8 = NewState7#eh_system_state{node_state=eh_node_state:pre_update_msg(NodeState)},
-  event_state("handle_cast.eh_pred_pre_update.99", NewState8),
+  event_state("pred_pre_update.99", NewState8),
   {noreply, NewState8};
 
 handle_cast({?EH_PRED_UPDATE, {#eh_update_msg_key{timestamp=MsgTimestamp}=UMsgKey, #eh_update_msg_data{node_id=MsgNodeId}=UMsgData, CompletedSet}}, 
             State) ->
-  event_message("handle_cast.eh_pred_update.00", UMsgKey, UMsgData, CompletedSet),
   NewState8 = case eh_node_timestamp:valid_update_msg(UMsgKey, UMsgData, State) of
                 {false, _, NewState1}               ->
+                  event_message("pred_update.duplicate_msg", UMsgKey),
                   NewState1;
                 {true, ?EH_RETURNED_MSG, NewState1} ->
+                  event_message("pred_update.valid_returned_msg", UMsgKey),
                   NewState2 = eh_node_timestamp:update_state_completed_set(CompletedSet, NewState1),
                   NewState3 = eh_node_timestamp:update_state_timestamp(MsgTimestamp, NewState2),
                   reply_to_client(fun no_persist_data/3, UMsgKey, UMsgData, NewState3);
                 {true, _, NewState1}                ->
+                  event_message("pred_update.valid_pred_msg", UMsgKey, UMsgData, CompletedSet),
 	          NewState2 = eh_node_timestamp:update_state_msg_data(MsgNodeId, CompletedSet,	NewState1),
                   send_update_msg(fun persist_data/3, UMsgKey, UMsgData, NewState2)
               end,
-  event_state("handle_cast.eh_pred_update.99", NewState8),
+  event_state("pred_update.99", NewState8),
   {noreply, NewState8};
 
 handle_cast({stop, Reason}, State) ->
@@ -200,23 +204,24 @@ handle_info(Msg, #eh_system_state{repl_ring=ReplRing, successor=Succ, app_config
   FailureDetector = eh_system_config:get_failure_detector(AppConfig),
   NewState9 = case FailureDetector:detect(Msg) of
                 {?EH_NODEDOWN, DownNode} ->
-                  event_data("handle_info.01", failure, {?EH_NODEDOWN, eh_system_util:get_node_name(DownNode)}),
+                  event_data("failure", node_down, eh_system_util:get_node_name(DownNode)),
                   NodeId = eh_system_config:get_node_id(AppConfig),
                   NewReplRing = eh_repl_ring:drop(DownNode, ReplRing),
                   NewSucc = eh_repl_ring:successor(NodeId, NewReplRing),
                   NewState1 = State#eh_system_state{repl_ring=NewReplRing, successor=NewSucc},
-                  case Succ =:= DownNode of
-                    true  ->
-                      NewState2 = eh_node_timestamp:update_state_merge_completed_set(DownNode, NewState1),
-                      send_down_msg(NewState2);
-                    false ->
-                      NewState1
-                  end;
+                  NewState3 = case Succ =:= DownNode of
+                                true  ->
+                                  NewState2 = eh_node_timestamp:update_state_merge_completed_set(DownNode, NewState1),
+                                  send_down_msg(NewState2);
+                                false ->
+                                   NewState1
+                              end,
+                  event_state("failure.99", NewState3),
+                  NewState3;
                 _                        ->
                   State 
               end,
-  event_state("handle_info.99", NewState9),
-  {noreply, NewState9}.
+   {noreply, NewState9}.
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -229,6 +234,9 @@ event_state(Msg, State) ->
 
 event_message(Msg, MsgKey, MsgData, CompletedSet) ->
   eh_event:message(?MODULE, Msg, {MsgKey, MsgData, CompletedSet}).
+
+event_message(Msg, MsgKey) ->
+  eh_event:message(?MODULE, Msg, MsgKey).
 
 event_data(Msg, DataMsg, Data) ->
   eh_event:data(?MODULE, Msg, DataMsg, Data).

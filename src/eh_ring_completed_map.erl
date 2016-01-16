@@ -39,7 +39,12 @@ get_completed_set(NodeId, RingCompletedMap) ->
   end.
 
 add_completed_set(NodeId, CompletedSet, RingCompletedMap) ->
-  eh_system_util:add_map(NodeId, CompletedSet, RingCompletedMap).
+  case sets:size(CompletedSet) =:= 0 of
+    true  ->
+      eh_system_util:remove_map(NodeId, RingCompletedMap);
+    false ->
+      eh_system_util:add_map(NodeId, CompletedSet, RingCompletedMap)
+  end.
 
 add_msg_key(NodeId, MsgKey, RingCompletedMap) ->
   CompletedSet = eh_system_util:add_set(MsgKey, get_completed_set(NodeId, RingCompletedMap)),
