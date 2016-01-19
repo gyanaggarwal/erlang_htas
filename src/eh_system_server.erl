@@ -75,7 +75,7 @@ handle_cast({?EH_ADD_NODE, {Node, NodeList}},
                   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
                   FailureDetector:set(Node, NewNodeList),
                   {Timestamp, DataIndex} = ReplDataManager:timestamp(),
-                  gen_server:cast({?EH_SYSTEM_SERVER, NewPred}, {?EH_SNAPSHOT, {self(), Ref, {Timestamp, DataIndex}}}),
+                  gen_server:cast({?EH_SYSTEM_SERVER, NewPred}, {?EH_SNAPSHOT, {Node, self(), Ref, {Timestamp, DataIndex}}}),
                   State#eh_system_state{successor=NewSucc, repl_ring=NewNodeList, reference=Ref};
                 ?EH_VALID_FOR_EXISTING -> 
                   NodeId = eh_system_config:get_node_id(AppConfig),
@@ -89,13 +89,17 @@ handle_cast({?EH_ADD_NODE, {Node, NodeList}},
   event_state("add_node.99", NewState2),
   {noreply, NewState2};
 
-handle_cast({?EH_SNAPSHOT, {From, Ref, {Timestamp, DataIndex}}}, 
-            #eh_system_state{app_config=AppConfig}=State) ->
+handle_cast({?EH_SNAPSHOT, {Node, From, Ref, {Timestamp, DataIndex}}}, 
+            #eh_system_state{repl_ring=ReplRing, app_config=AppConfig}=State) ->
+  NodeId = eh_system_config:get_node_id(AppConfig),
+  NewReplRing = eh_repl_ring:add(Node, ReplRing),
+  NewSucc = eh_repl_ring:successor(NodeId, NewReplRing),
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   Q0 = ReplDataManager:snapshot(Timestamp, DataIndex),
-  gen_server:cast(From, {?EH_UPDATE_SNAPSHOT, {Ref, Q0}}),  
-  event_state("snapshot.99", State),
-  {noreply, State};
+  gen_server:cast(From, {?EH_UPDATE_SNAPSHOT, {Ref, Q0}}),
+  NewState1 = State#eh_system_state{repl_ring=NewReplRing, successor=NewSucc},
+  event_state("snapshot.99", NewState1),
+  {noreply, NewState1};
 
 handle_cast({?EH_UPDATE_SNAPSHOT, {Ref, Q0}}, 
             #eh_system_state{node_state=NodeState, reference=Ref, app_config=AppConfig}=State) ->
