@@ -26,26 +26,26 @@
 
 -include("erlang_htas.hrl").
 
-pre_update_msg(#eh_node_state{update_snapshot=false}=NodeState) ->
-  NodeState#eh_node_state{pre_update_msg=true};
-pre_update_msg(#eh_node_state{update_snapshot=true}=NodeState) ->
-  NodeState#eh_node_state{pre_update_msg=true, state=?EH_STATE_NORMAL}.
+pre_update_msg(#eh_node_status{update_snapshot=false}=NodeState) ->
+  NodeState#eh_node_status{pre_update_msg=true};
+pre_update_msg(#eh_node_status{update_snapshot=true}=NodeState) ->
+  NodeState#eh_node_status{pre_update_msg=true, state=?EH_STATE_NORMAL}.
 
-update_snapshot(#eh_node_state{pre_update_msg=false}=NodeState) ->
-  NodeState#eh_node_state{update_snapshot=true};
-update_snapshot(#eh_node_state{pre_update_msg=true}=NodeState) ->
-  NodeState#eh_node_state{update_snapshot=true, state=?EH_STATE_NORMAL}.
+update_snapshot(#eh_node_status{pre_update_msg=false}=NodeState) ->
+  NodeState#eh_node_status{update_snapshot=true};
+update_snapshot(#eh_node_status{pre_update_msg=true}=NodeState) ->
+  NodeState#eh_node_status{update_snapshot=true, state=?EH_STATE_NORMAL}.
 
 state(NodeState) ->
-  NodeState#eh_node_state{state=?EH_STATE_NORMAL}.
+  NodeState#eh_node_status{state=?EH_STATE_NORMAL}.
 
-data_state(#eh_node_state{state=?EH_STATE_NORMAL}) ->
+data_state(#eh_node_status{state=?EH_STATE_NORMAL}) ->
   ?EH_STATE_NORMAL;
-data_state(#eh_node_state{update_snapshot=true}) ->
+data_state(#eh_node_status{update_snapshot=true}) ->
   ?EH_STATE_NORMAL;
 data_state(_) ->
   ?EH_STATE_TRANSIENT.
 
-client_state(#eh_node_state{state=State}) ->
+client_state(#eh_node_status{state=State}) ->
   State.
 

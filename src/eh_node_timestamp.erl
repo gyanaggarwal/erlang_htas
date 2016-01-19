@@ -95,7 +95,7 @@ update_state_timestamp(MsgTimestamp,
   State#eh_system_state{timestamp=max(MsgTimestamp, Timestamp)}.
 
 valid_add_node_msg(Node, 
-                   #eh_system_state{repl_ring=ReplRing, node_state=NodeState, app_config=AppConfig}) ->
+                   #eh_system_state{repl_ring=ReplRing, node_status=NodeState, app_config=AppConfig}) ->
   case {eh_node_state:client_state(NodeState), Node =:= eh_system_config:get_node_id(AppConfig), lists:member(Node, ReplRing)} of
     {?EH_STATE_TRANSIENT, true, _}   ->
       ?EH_VALID_FOR_NEW;

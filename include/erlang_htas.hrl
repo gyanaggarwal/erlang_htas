@@ -93,11 +93,11 @@
                                  node_id                             :: atom(),
                                  reference                           :: term()}).
 
--record(eh_node_state,          {pre_update_msg=false                :: true | false,
+-record(eh_node_status,         {pre_update_msg=false                :: true | false,
                                  update_snapshot=false               :: true | false,
                                  state=?EH_STATE_TRANSIENT           :: ?EH_STATE_NORMAL | ?EH_STATE_TRANSIENT}).
 
--record(eh_system_state,        {node_state=#eh_node_state{}         :: #eh_node_state{},
+-record(eh_system_state,        {node_status=#eh_node_status{}       :: #eh_node_status{},
                                  timestamp=0                         :: non_neg_integer(),
                                  repl_ring                           :: list(),
                                  successor                           :: atom(),

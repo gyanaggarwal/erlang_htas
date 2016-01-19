@@ -51,13 +51,13 @@ handle_call(_Msg, _From, State) ->
 
 
 handle_cast(?EH_SETUP_RING, 
-            #eh_system_state{repl_ring=ReplRing, node_state=NodeState, app_config=AppConfig}=State) ->
+            #eh_system_state{repl_ring=ReplRing, node_status=NodeState, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
   FailureDetector = eh_system_config:get_failure_detector(AppConfig),
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   FailureDetector:set(NodeId, ReplRing),
   {Timestamp, _} = ReplDataManager:timestamp(),
-  NewState2 = State#eh_system_state{timestamp=Timestamp, node_state=eh_node_state:state(NodeState)},
+  NewState2 = State#eh_system_state{timestamp=Timestamp, node_status=eh_node_state:state(NodeState)},
   event_state("setup_ring.99", NewState2),
   {noreply, NewState2};
 
@@ -102,10 +102,10 @@ handle_cast({?EH_SNAPSHOT, {Node, From, Ref, {Timestamp, DataIndex}}},
   {noreply, NewState1};
 
 handle_cast({?EH_UPDATE_SNAPSHOT, {Ref, Q0}}, 
-            #eh_system_state{node_state=NodeState, reference=Ref, app_config=AppConfig}=State) ->
+            #eh_system_state{node_status=NodeState, reference=Ref, app_config=AppConfig}=State) ->
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   ReplDataManager:update_snapshot(Q0),
-  NewState2 = State#eh_system_state{node_state=eh_node_state:update_snapshot(NodeState)},
+  NewState2 = State#eh_system_state{node_status=eh_node_state:update_snapshot(NodeState)},
   event_state("update_snapshot.99", NewState2),
   {noreply, NewState2};
 
@@ -113,7 +113,7 @@ handle_cast({?EH_UPDATE_SNAPSHOT, _}, State) ->
   {noreply, State};
 
 handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}}, 
-            #eh_system_state{pre_msg_data=PreMsgData, node_state=NodeState, app_config=AppConfig}=State) ->
+            #eh_system_state{pre_msg_data=PreMsgData, node_status=NodeState, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
   State1 = case eh_node_state:data_state(NodeState) of
              ?EH_STATE_TRANSIENT ->
@@ -131,7 +131,7 @@ handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}},
   {noreply, State1};
 
 handle_cast({?EH_UPDATE, {From, Ref, ObjectList}},
-            #eh_system_state{timestamp=Timestamp, node_state=NodeState, successor=Succ, app_config=AppConfig}=State) ->
+            #eh_system_state{timestamp=Timestamp, node_status=NodeState, successor=Succ, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
   NewState9 = case eh_node_state:client_state(NodeState) of
                 ?EH_STATE_TRANSIENT ->
@@ -159,7 +159,7 @@ handle_cast({?EH_UPDATE, {From, Ref, ObjectList}},
   {noreply, NewState9};
 
 handle_cast({?EH_PRED_PRE_UPDATE, {UMsgKey, #eh_update_msg_data{node_id=MsgNodeId}=UMsgData, CompletedSet}}, 
-            #eh_system_state{node_state=NodeState}=State) ->
+            #eh_system_state{node_status=NodeState}=State) ->
    NewState7 = case eh_node_timestamp:valid_pre_update_msg(UMsgKey, UMsgData, State) of
                 {false, _, NewState1}               ->
                   event_message("pred_pre_update.duplicate_msg", UMsgKey),
@@ -173,7 +173,7 @@ handle_cast({?EH_PRED_PRE_UPDATE, {UMsgKey, #eh_update_msg_data{node_id=MsgNodeI
                   NewState2 = eh_node_timestamp:update_state_msg_data(MsgNodeId, CompletedSet, NewState1),
                   send_pre_update_msg(fun no_persist_data/3, UMsgKey, UMsgData, NewState2)
               end,
-  NewState8 = NewState7#eh_system_state{node_state=eh_node_state:pre_update_msg(NodeState)},
+  NewState8 = NewState7#eh_system_state{node_status=eh_node_state:pre_update_msg(NodeState)},
   event_state("pred_pre_update.99", NewState8),
   {noreply, NewState8};
 
@@ -247,7 +247,7 @@ event_data(Msg, DataMsg, Data) ->
 
 persist_data(#eh_update_msg_key{timestamp=Timestamp, object_type=ObjectType, object_id=ObjectId}, 
              #eh_update_msg_data{update_data=UpdateData}, 
-             #eh_system_state{node_state=NodeState, app_config=AppConfig}=State) ->
+             #eh_system_state{node_status=NodeState, app_config=AppConfig}=State) ->
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   ReplDataManager:update(eh_node_state:data_state(NodeState), Timestamp, {ObjectType, ObjectId, UpdateData}),
   eh_query_handler:process_pending(ObjectType, ObjectId, State).
