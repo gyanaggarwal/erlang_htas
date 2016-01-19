@@ -25,7 +25,8 @@
          timestamp/0,
          snapshot/2,
          update_snapshot/1,
-         data_view/0]).
+         data_view/0,
+         check_data/1]).
 
 -include("erlang_htas.hrl").
 
@@ -52,3 +53,7 @@ update_snapshot(Q0) ->
 -spec data_view() -> term().
 data_view() ->
   gen_server:call(?EH_DATA_SERVER, ?EH_DATA_VIEW).
+
+-spec check_data(Msg :: term()) -> true | false.
+check_data(Msg) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_CHECK_DATA, Msg}).

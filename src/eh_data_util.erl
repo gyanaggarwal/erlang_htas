@@ -25,16 +25,25 @@
          merge_data/4,
          add_key_value/2,
          update_timestamp/2,
-         data_view/1]).
+         data_view/1,
+         check_data/4]).
 
 -include("erlang_htas.hrl").
 
-process_data(ProcessFun, ProcessCriteria, Q0, Acc0) ->
-  case queue:out(Q0) of
+queue_fun(Q0, _Acc0) ->
+  queue:out(Q0).
+
+check_data_queue_fun(Q0, true) ->
+  {empty, Q0};
+check_data_queue_fun(Q0, false) ->
+  queue:out_r(Q0).
+
+process_data(ProcessFun, QFun, ProcessCriteria, Q0, Acc0) ->
+  case QFun(Q0, Acc0) of
     {empty, _}                 ->
       Acc0;
     {{value, StorageData}, Q1} ->
-      process_data(ProcessFun, ProcessCriteria, Q1, ProcessFun(ProcessCriteria, StorageData, Acc0))
+      process_data(ProcessFun, QFun, ProcessCriteria, Q1, ProcessFun(ProcessCriteria, StorageData, Acc0))
   end.
 
 sort_fun(#eh_storage_data{timestamp=Timestamp1, data_index=DataIndex1},
@@ -60,7 +69,7 @@ snapshot_fun(_, _, Qo0) ->
   Qo0.
 
 snapshot_data(Timestamp, DataIndexList, Mi0) ->
- Acc0 = maps:fold(fun(K, Qi0, Acc) -> process_data(fun snapshot_fun/3, {Timestamp, DataIndexList, K}, Qi0, Acc) end, [], Mi0),
+ Acc0 = maps:fold(fun(K, Qi0, Acc) -> process_data(fun snapshot_fun/3, fun queue_fun/2, {Timestamp, DataIndexList, K}, Qi0, Acc) end, [], Mi0),
  queue:from_list(lists:sort(fun sort_fun/2, Acc0)).
 
 query_fun(_, #eh_storage_value{status=?STATUS_INACTIVE, column=undefined}, _Lo0) ->
@@ -75,7 +84,18 @@ query_data(ObjectType, ObjectId, Mi0) ->
     error     ->
       [];
     {ok, Qi0} ->
-      process_data(fun query_fun/3, {ObjectType, ObjectId}, Qi0, [])
+      process_data(fun query_fun/3, fun queue_fun/2, {ObjectType, ObjectId}, Qi0, [])
+  end.
+
+check_data_fun(Timestamp, #eh_storage_value{timestamp=VTimestamp}, _Acc0) ->
+  VTimestamp >= Timestamp.
+
+check_data(ObjectType, ObjectId, Timestamp, Mi0) ->
+  case maps:find(make_key(ObjectType, ObjectId), Mi0) of
+    error     ->
+      false;
+    {ok, Qi0} ->
+      process_data(fun check_data_fun/3, fun check_data_queue_fun/2, Timestamp, Qi0, false)
   end.
 
 make_data(ObjectType, ObjectId, Timestamp, ?STATUS_INACTIVE, {StateTimestamp, StateDataIndexList}, Di0) ->

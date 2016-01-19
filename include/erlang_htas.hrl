@@ -45,6 +45,7 @@
 -define(EH_SNAPSHOT,               eh_snapshot).
 -define(EH_UPDATE_SNAPSHOT,        eh_update_snapshot).
 -define(EH_DATA_VIEW,              eh_data_view).
+-define(EH_CHECK_DATA,             eh_check_data).
 
 -define(EH_STATE_NORMAL,           eh_state_normal).
 -define(EH_STATE_TRANSIENT,        eh_state_transient).

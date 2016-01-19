@@ -111,20 +111,27 @@ returned_msg(#eh_update_msg_data{node_id=MsgNodeId},
   OriginNodeId = eh_repl_ring:originating_node_id(MsgNodeId, ReplRing),
   {NodeId =:= OriginNodeId, ?EH_RETURNED_MSG, State}.
 
-valid_msg(Fun, 
+valid_msg(ConflictResolveFun, 
+          IsKeyFun,
+          CheckDataFun,
           UpdateMsgKey,
           #eh_update_msg_data{node_id=MsgNodeId}=UpdateMsgData,
           MsgData,
           MsgData1,
-          IsKeyFun,
           State) ->
   case maps:find(UpdateMsgKey, MsgData) of
     error                                        ->
-       {not IsKeyFun(UpdateMsgKey, MsgData1), ?EH_RING_MSG, State};
+       Value = case IsKeyFun(UpdateMsgKey, MsgData1) of
+                 true  ->
+                   false;
+                 false ->
+                   not CheckDataFun(UpdateMsgKey, State)
+               end,
+       {Value, ?EH_RING_MSG, State};
     {ok, #eh_update_msg_data{node_id=MsgNodeId}} ->
       returned_msg(UpdateMsgData, State);
     {ok, EUpdateMsgData}                         ->
-      Fun(UpdateMsgKey, UpdateMsgData, EUpdateMsgData, State)   
+      ConflictResolveFun(UpdateMsgKey, UpdateMsgData, EUpdateMsgData, State)   
   end.
 
 update_conflict_resolver(_, _, _, State) ->
@@ -133,7 +140,14 @@ update_conflict_resolver(_, _, _, State) ->
 valid_update_msg(UpdateMsgKey,
                  UpdateMsgData,
                  #eh_system_state{msg_data=MsgData, ring_completed_map=RingCompletedMap}=State) ->
-  valid_msg(fun update_conflict_resolver/4, UpdateMsgKey, UpdateMsgData, MsgData, eh_ring_completed_map:get_ring_completed_set(RingCompletedMap), fun eh_system_util:is_key_set/2, State).
+  valid_msg(fun update_conflict_resolver/4, 
+            fun eh_system_util:is_key_set/2,
+            fun update_check_data/2, 
+            UpdateMsgKey, 
+            UpdateMsgData, 
+            MsgData, 
+            eh_ring_completed_map:get_ring_completed_set(RingCompletedMap), 
+            State).
 
 pre_update_conflict_resolver(#eh_update_msg_key{object_type=ObjectType, object_id=ObjectId}=UpdateMsgKey,
                              #eh_update_msg_data{node_id=MsgNodeId},
@@ -160,7 +174,22 @@ pre_update_conflict_resolver(#eh_update_msg_key{object_type=ObjectType, object_i
 valid_pre_update_msg(UpdateMsgKey,
                      UpdateMsgData,
                      #eh_system_state{pre_msg_data=PreMsgData, msg_data=MsgData}=State) ->
-  valid_msg(fun pre_update_conflict_resolver/4, UpdateMsgKey, UpdateMsgData, PreMsgData, MsgData, fun eh_system_util:is_key_map/2, State).
+  valid_msg(fun pre_update_conflict_resolver/4, 
+            fun eh_system_util:is_key_map/2,
+            fun pre_update_check_data/2, 
+            UpdateMsgKey, 
+            UpdateMsgData, 
+            PreMsgData, 
+            MsgData, 
+            State).
+
+pre_update_check_data(_UpdateMsgKey, _State) ->
+  false.
+
+update_check_data(#eh_update_msg_key{timestamp=Timestamp, object_type=ObjectType, object_id=ObjectId},
+                  #eh_system_state{app_config=AppConfig}) ->
+  ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
+  ReplDataManager:check_data({Timestamp, ObjectType, ObjectId}).
 
 
 

@@ -32,6 +32,8 @@
 
 -callback data_view() -> term().
 
+-callback check_data(Msg :: term()) -> true | false.
+
 
 
  
