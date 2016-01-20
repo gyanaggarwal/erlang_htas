@@ -33,10 +33,7 @@ start_link(AppConfig) ->
 
 
 init([AppConfig]) ->
-  ReplRing = eh_system_config:get_repl_ring(AppConfig),
-  NodeId = eh_system_config:get_node_id(AppConfig),
-  Succ = eh_repl_ring:successor(NodeId, ReplRing),
-  State = #eh_system_state{repl_ring=ReplRing, successor=Succ, app_config=AppConfig},
+  State = #eh_system_state{app_config=AppConfig},
   {ok, State}.
 
 handle_call(?EH_DATA_VIEW, 
@@ -50,14 +47,15 @@ handle_call(_Msg, _From, State) ->
   {reply, ok, State}.
 
 
-handle_cast(?EH_SETUP_RING, 
-            #eh_system_state{repl_ring=ReplRing, node_status=NodeState, app_config=AppConfig}=State) ->
+handle_cast({?EH_SETUP_RING, ReplRing}, 
+            #eh_system_state{node_status=NodeState, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
+  Succ = eh_repl_ring:successor(NodeId, ReplRing),
   FailureDetector = eh_system_config:get_failure_detector(AppConfig),
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   FailureDetector:set(NodeId, ReplRing),
   {Timestamp, _} = ReplDataManager:timestamp(),
-  NewState2 = State#eh_system_state{timestamp=Timestamp, node_status=eh_node_state:state(NodeState)},
+  NewState2 = State#eh_system_state{repl_ring=ReplRing, successor=Succ, timestamp=Timestamp, node_status=eh_node_state:state(NodeState)},
   event_state("setup_ring.99", NewState2),
   {noreply, NewState2};
 

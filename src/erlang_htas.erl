@@ -55,10 +55,10 @@ validate(NodeList) ->
 
 setup_ring(NodeList) ->
   Result = data_view(NodeList),
-  NodeList1 = eh_system_util:extract_nodes(Result, []),
-  Msg = case eh_system_util:valid_result(Result) of
+  NodeList1 = lists:sort(eh_system_util:extract_nodes(Result, [])),
+  Msg = case eh_system_util:valid_result(Result) andalso length(NodeList1) > 0  of
           true  ->
-            gen_server:abcast(NodeList1, ?EH_SYSTEM_SERVER, ?EH_SETUP_RING),
+            gen_server:abcast(NodeList1, ?EH_SYSTEM_SERVER, {?EH_SETUP_RING, NodeList1}),
             "setup_ring successful : ";
           false ->
             "setup_ring failed nodes are in inconsistent state : "
