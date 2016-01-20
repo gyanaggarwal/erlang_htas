@@ -103,7 +103,7 @@
 
 -record(eh_system_state,        {node_status=#eh_node_status{}       :: #eh_node_status{},
                                  timestamp=0                         :: non_neg_integer(),
-                                 repl_ring                           :: list(),
+                                 repl_ring=[]                        :: list(),
                                  successor                           :: atom(),
                                  ring_completed_map=maps:new()       :: maps:map(),
                                  msg_data=maps:new()                 :: maps:map(),
