@@ -49,6 +49,10 @@
 
 -define(EH_STATE_NORMAL,           eh_state_normal).
 -define(EH_STATE_TRANSIENT,        eh_state_transient).
+-define(READY,                     ready).
+-define(TRANSIENT,                 transient).
+-define(TRANSIENT_DU,              transient_data_updated).
+-define(TRANSIENT_TU,              transient_timestamp_updated).
 
 -define(EH_SYSTEM_SERVER,          eh_system_server).
 -define(EH_DATA_SERVER,            eh_data_server).

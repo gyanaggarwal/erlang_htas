@@ -22,7 +22,8 @@
          update_snapshot/1,
          state/1,
          data_state/1,
-         client_state/1]).
+         client_state/1,
+         display_state/1]).
 
 -include("erlang_htas.hrl").
 
@@ -48,4 +49,13 @@ data_state(_) ->
 
 client_state(#eh_node_status{state=State}) ->
   State.
+
+display_state(#eh_node_status{state=?EH_STATE_TRANSIENT, update_snapshot=true}) ->
+  ?TRANSIENT_DU;
+display_state(#eh_node_status{state=?EH_STATE_TRANSIENT, pre_update_msg=true}) ->
+  ?TRANSIENT_TU;
+display_state(#eh_node_status{state=?EH_STATE_TRANSIENT}) ->
+  ?TRANSIENT;
+display_state(_) ->
+  ?READY.
 
