@@ -54,7 +54,16 @@ validate(NodeList) ->
   end.
 
 setup_ring(NodeList) ->
-  gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, ?EH_SETUP_RING).
+  Result = data_view(NodeList),
+  NodeList1 = eh_system_util:extract_nodes(Result, []),
+  Msg = case eh_system_util:valid_result(Result) of
+          true  ->
+            gen_server:abcast(NodeList1, ?EH_SYSTEM_SERVER, ?EH_SETUP_RING),
+            "setup_ring successful : ";
+          false ->
+            "setup_ring failed nodes are in inconsistent state : "
+        end, 
+  Msg++eh_system_util:make_list_to_string(fun eh_system_util:get_node_name/1, NodeList1).
 
 add_node(Node, NodeList) ->
   gen_server:abcast(NodeList, ?EH_SYSTEM_SERVER, {?EH_ADD_NODE, {Node, NodeList}}).

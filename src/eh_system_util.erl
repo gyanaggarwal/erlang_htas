@@ -34,7 +34,8 @@
          get_map_timestamp/1,
          is_key_map/2,
          exist_map_msg/3,
-         valid_result/1]).
+         valid_result/1, 
+         extract_nodes/2]).
 
 -include("erlang_htas.hrl").
 
@@ -100,6 +101,12 @@ valid_result([_H | []]) ->
 valid_result([{_, R0} | Rest]) ->
   lists:all(fun({_, RX}) -> R0 =:= RX end, Rest).
 
+extract_nodes([{Node, _} | Rest], Acc) ->
+  extract_nodes(Rest, [Node | Acc]);
+extract_nodes([], Acc) ->
+  Acc.
+
+  
 
 
 
