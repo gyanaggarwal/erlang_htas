@@ -119,7 +119,7 @@ handle_cast({?EH_QUERY, {From, Ref, {ObjectType, ObjectId}}},
              _                   ->  
                case eh_system_util:exist_map_msg(ObjectType, ObjectId, PreMsgData) of
                  false ->
-                    eh_query_handler:query(ObjectType, ObjectId, From, Ref, State);
+                    eh_query_handler:query(ok, ObjectType, ObjectId, From, Ref, State);
                  true  -> 
                     QueryHandler = eh_system_config:get_query_handler(AppConfig),
                     QueryHandler:process(ObjectType, ObjectId, From, Ref, State)

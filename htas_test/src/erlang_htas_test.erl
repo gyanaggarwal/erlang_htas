@@ -59,11 +59,11 @@ update(0, _State) ->
 update(DataEntries, #eh_run_state{active_nodes=ActiveNodes}=State) ->
   timer:sleep(?ENTRY_SLEEP_TIME),
   {Node, ObjectType, ObjectId, Columns} = eh_test_util:get_update_param(ActiveNodes),
-  erlang_htas:update(Node, ObjectType, ObjectId, Columns, []),
+  erlang_htas:update(Node, ObjectType, ObjectId, Columns),
   update(DataEntries-1, State).
 
 make_node_change(?NODE_DOWN, Node, #eh_run_state{active_nodes=ActiveNodes, down_nodes=DownNodes}=State) ->
-  erlang_htas:stop(Node, normal),
+  erlang_htas:stop(Node),
   State#eh_run_state{active_nodes=lists:delete(Node, ActiveNodes), down_nodes=[Node | DownNodes]};
 make_node_change(?NODE_UP, Node, #eh_run_state{active_nodes=ActiveNodes, down_nodes=DownNodes}=State) ->
   ActiveNodes1 = [Node | ActiveNodes],
@@ -86,7 +86,6 @@ node_change(NodeList) ->
   State = #eh_run_state{active_nodes=NodeList, test_runs=eh_test_util:get_random(?TEST_RUNS)},
   do_node_change(State).
 
-
 do_node_change(#eh_run_state{test_runs=0, down_nodes=[]}) ->
   ok;
 do_node_change(#eh_run_state{test_runs=TestRuns}=State) ->
@@ -105,5 +104,5 @@ do_node_change(#eh_run_state{test_runs=TestRuns}=State) ->
   do_node_change(State2).
 
 print(NodeChange, Node, #eh_run_state{test_runs=TestRuns, active_nodes=ActiveNodes, down_nodes=DownNodes}) ->
-  io:fwrite("node_change=~p, node=~p, test_runs=~p, active_nodes=~p, down_nodes=~p~n", [NodeChange, Node, TestRuns, length(ActiveNodes), length(DownNodes)]).
+  io:fwrite("node_change=~p, node=~p, test_runs=~p, active_nodes=~p, down_nodes=~p~n", [NodeChange, eh_system_util:get_node_name(Node), TestRuns, length(ActiveNodes), length(DownNodes)]).
  

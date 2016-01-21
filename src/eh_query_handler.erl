@@ -23,7 +23,7 @@
          error_node_down/1,
          error_being_updated/2,
          updated/2,
-         query/5,
+         query/6,
          process_pending/3]).
 
 -include("erlang_htas.hrl").
@@ -57,10 +57,6 @@ error_node(NodeId, Msg) ->
 object(Tag, ObjectType, ObjectId, Msg) ->
   {Tag, object_tuple(ObjectType, ObjectId, Msg)}.
 
-query(ObjectType, ObjectId, From, Ref, #eh_system_state{app_config=AppConfig}=State) ->
-  reply(From, Ref, {ok, query_reply(ObjectType, ObjectId, AppConfig)}),
-  State.
-
 process_pending(ObjectType, ObjectId, #eh_system_state{query_data=QueryData, app_config=AppConfig}=State) ->
   case maps:find({ObjectType, ObjectId}, QueryData) of
     error      ->
@@ -76,5 +72,10 @@ process_pending(ObjectType, ObjectId, #eh_system_state{query_data=QueryData, app
 query_reply(ObjectType, ObjectId, AppConfig) ->
   ReplDataManager = eh_system_config:get_repl_data_manager(AppConfig),
   ReplDataManager:query({ObjectType, ObjectId}).
+
+query(Tag, ObjectType, ObjectId, From, Ref, #eh_system_state{app_config=AppConfig}=State) ->
+  reply(From, Ref, {Tag, query_reply(ObjectType, ObjectId, AppConfig)}),
+  State.
+
 
 
