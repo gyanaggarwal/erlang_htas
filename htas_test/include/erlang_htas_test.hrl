@@ -16,7 +16,7 @@
 %% under the License.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(TEST_RUNS,             {10, 20}).
+-define(TEST_RUNS,             {15, 20}).
 -define(DATA_ENTRIES,          {5, 10}).
 -define(BULK_DATA_ENTRIES,     {400, 500}).
 

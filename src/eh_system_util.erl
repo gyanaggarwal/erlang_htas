@@ -23,14 +23,21 @@
          get_file_name/3,
          make_list_to_string/2,
          get_update_msg/7,
+         new_set/0,
+         size_set/1,
          add_set/2,
          remove_set/2,
          merge_set/2,
          subtract_set/2,
+         fold_set/3,
          get_set_timestamp/1,
          is_key_set/2,
+         new_map/0,
+         size_map/1,
          add_map/3,
          remove_map/2,
+         find_map/2,
+         fold_map/3,
          get_map_timestamp/1,
          is_key_map/2,
          exist_map_msg/3,
@@ -47,7 +54,9 @@ get_node_name(Node) ->
 get_node_atom(Node) ->
   list_to_atom(get_node_name(Node)).
 
--spec get_file_name(NodeName :: string(), DataDir :: string(), FileName :: string()) -> string().
+-spec get_file_name(NodeName :: string(), DataDir :: string(), FileName :: string() | atom()) -> string() | atom().
+get_file_name(_, _, standard_io) ->
+  standard_io;
 get_file_name(NodeName, DataDir, FileName) ->
   DataDir ++ NodeName ++ FileName.
 
@@ -60,6 +69,12 @@ make_list_to_string(Fun, List) ->
 get_update_msg(ObjectType, ObjectId, UpdateData, Timestamp, From, NodeId, Ref) ->
   {#eh_update_msg_key{timestamp=Timestamp, object_type=ObjectType, object_id=ObjectId},
    #eh_update_msg_data{update_data=UpdateData, client_id=From, node_id=NodeId, reference=Ref}}.
+
+new_set() ->
+  sets:new().
+
+size_set(Set) ->
+  sets:size(Set).
 
 add_set(Key, Set) ->
   sets:add_element(Key, Set).
@@ -76,8 +91,17 @@ subtract_set(Set1, Set2) ->
 is_key_set(Key, Set) ->
   sets:is_element(Key, Set).
 
+fold_set(Fun, Acc, Set) ->
+  sets:fold(Fun, Acc, Set).
+
 get_set_timestamp(Set) ->
   sets:fold(fun(#eh_update_msg_key{timestamp=Timestamp}, Acc) -> [Timestamp | Acc] end, [], Set).
+
+new_map() ->
+  maps:new().
+
+size_map(Map) ->
+  maps:size(Map).
 
 add_map(Key, Value, Map) ->
   maps:put(Key, Value, Map).
@@ -85,8 +109,14 @@ add_map(Key, Value, Map) ->
 remove_map(Key, Map) ->
   maps:remove(Key, Map).
 
+find_map(Key, Map) ->
+  maps:find(Key, Map).
+
 is_key_map(Key, Map) ->
   maps:is_key(Key, Map).
+
+fold_map(Fun, Acc, Map) ->
+  maps:fold(Fun, Acc, Map).
 
 get_map_timestamp(Map) ->
   maps:fold(fun(#eh_update_msg_key{timestamp=Timestamp}, _, Acc) -> [Timestamp | Acc] end, [], Map).

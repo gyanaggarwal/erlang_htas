@@ -28,18 +28,18 @@
 -include("erlang_htas.hrl").
 
 get_ring_completed_set(RingCompletedMap) ->
-  maps:fold(fun(_K, V, S) -> eh_system_util:merge_set(V, S) end, sets:new(), RingCompletedMap).
+ eh_system_util:fold_map(fun(_K, V, S) -> eh_system_util:merge_set(V, S) end, eh_system_util:new_set(), RingCompletedMap).
 
 get_completed_set(NodeId, RingCompletedMap) ->
-  case maps:find(NodeId, RingCompletedMap) of
+  case eh_system_util:find_map(NodeId, RingCompletedMap) of
     error              ->
-      sets:new();
+      eh_system_util:new_set();
     {ok, CompletedSet} ->
       CompletedSet
   end.
 
 add_completed_set(NodeId, CompletedSet, RingCompletedMap) ->
-  case sets:size(CompletedSet) =:= 0 of
+  case eh_system_util:size_set(CompletedSet) =:= 0 of
     true  ->
       eh_system_util:remove_map(NodeId, RingCompletedMap);
     false ->

@@ -66,6 +66,7 @@
                                  unique_id_generator                 :: atom(),
                                  query_handler                       :: atom(),
                                  file_repl_data                      :: string(),
+                                 file_repl_log                       :: standard_io | string(),
                                  debug_mode=false                    :: true | false,
                                  sup_restart_intensity               :: non_neg_integer(),
                                  sup_restart_period                  :: non_neg_integer(),

@@ -287,9 +287,9 @@ send_update_msg(PersistFun,
   send_msg(?EH_PRED_UPDATE, PersistFun, UMsgKey, UMsgData, State).
 
 send_down_msg(#eh_system_state{pre_msg_data=PreMsgData, msg_data=MsgData, successor=undefined}=State) ->
-  maps:fold(fun(K, V, S) -> process_down_msg(fun persist_data/3, K, V, S) end, State, PreMsgData),
-  maps:fold(fun(K, V, S) -> process_down_msg(fun no_persist_data/3, K, V, S) end, State, MsgData),  
-  State#eh_system_state{pre_msg_data=maps:new(), msg_data=maps:new(), ring_completed_map=maps:new()};
+  eh_system_util:fold_map(fun(K, V, S) -> process_down_msg(fun persist_data/3, K, V, S) end, State, PreMsgData),
+  eh_system_util:fold_map(fun(K, V, S) -> process_down_msg(fun no_persist_data/3, K, V, S) end, State, MsgData),  
+  State#eh_system_state{pre_msg_data=eh_system_util:new_map(), msg_data=eh_system_util:new_map(), ring_completed_map=eh_system_util:new_map()};
 send_down_msg(#eh_system_state{pre_msg_data=PreMsgData, msg_data=MsgData}=State) ->
   State1 = send_down_msg(fun no_persist_data/3, fun send_pre_update_msg/4, fun persist_data/3, fun send_update_msg/4, PreMsgData, State),
   send_down_msg(fun no_persist_data/3, fun send_update_msg/4, fun no_persist_data/3, fun reply_to_client/4, MsgData, State1).
@@ -318,7 +318,7 @@ send_down_msg(PersistRingFun,
               MsgData,
               #eh_system_state{repl_ring=ReplRing, app_config=AppConfig}=State) ->
   NodeId = eh_system_config:get_node_id(AppConfig),
-  maps:fold(fun(K, V, S) -> down_fold_fun(PersistRingFun, RingFun, PersistReturnedFun, ReturnedFun, NodeId, ReplRing, K, V, S) end, State, MsgData).
+  eh_system_util:fold_map(fun(K, V, S) -> down_fold_fun(PersistRingFun, RingFun, PersistReturnedFun, ReturnedFun, NodeId, ReplRing, K, V, S) end, State, MsgData).
 
 process_down_msg(PersistFun,
                  UMsgKey,

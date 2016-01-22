@@ -28,6 +28,7 @@
          get_unique_id_generator/1,
          get_query_handler/1,
          get_file_repl_data/1,
+         get_file_repl_log/1,
          get_debug_mode/1,
          get_sup_restart_intensity/1,
          get_sup_restart_period/1,
@@ -44,6 +45,7 @@
 -define(QUERY_HANDLER,             eh_no_wait_query_handler_api).
 -define(DATA_DIR,                  "").
 -define(FILE_REPL_DATA,            "_repl.data").
+-define(FILE_REPL_LOG,             standard_io).
 -define(DEBUG_MODE,                false).
 -define(SUP_RESTART_INTENSITY,     1).
 -define(SUP_RESTART_PERIOD,        5).
@@ -55,6 +57,7 @@ get_env() ->
   NodeName = eh_system_util:get_node_name(Node),
   DataDir = eh_config:get_env(erlang_htas, data_dir, ?DATA_DIR),
   FileReplData = eh_config:get_env(erlang_htas, file_repl_data, ?FILE_REPL_DATA),
+  FileReplLog = eh_config:get_env(erlang_htas, file_repl_log, ?FILE_REPL_LOG),
 
   #eh_app_config{node_id                  = Node,
                  repl_ring                = lists:sort(eh_config:get_env(erlang_htas, repl_ring,     ?REPL_RING)),
@@ -65,6 +68,7 @@ get_env() ->
                  unique_id_generator      = eh_config:get_env(erlang_htas, unique_id_generator,      ?UNIQUE_ID_GENERATOR),
                  query_handler            = eh_config:get_env(erlang_htas, query_handler,            ?QUERY_HANDLER),
                  file_repl_data           = eh_system_util:get_file_name(NodeName, DataDir, FileReplData),
+                 file_repl_log            = eh_system_util:get_file_name(NodeName, DataDir, FileReplLog),
                  debug_mode               = eh_config:get_env(erlang_htas, debug_mode,               ?DEBUG_MODE),
                  sup_restart_intensity    = eh_config:get_env(erlang_htas, sup_restart_intensity,    ?SUP_RESTART_INTENSITY),
                  sup_restart_period       = eh_config:get_env(erlang_htas, sup_restart_period,       ?SUP_RESTART_PERIOD),
@@ -105,6 +109,10 @@ get_query_handler(#eh_app_config{query_handler=QueryHandler}) ->
 -spec get_file_repl_data(AppConfig :: #eh_app_config{}) -> string().
 get_file_repl_data(#eh_app_config{file_repl_data=FileReplData}) ->
   FileReplData.
+
+-spec get_file_repl_log(AppConfig :: #eh_app_config{}) -> atom() | string().
+get_file_repl_log(#eh_app_config{file_repl_log=FileReplLog}) ->
+  FileReplLog.
 
 -spec get_debug_mode(AppConfig :: #eh_app_config{}) -> boolean().
 get_debug_mode(#eh_app_config{debug_mode=DebugMode}) ->

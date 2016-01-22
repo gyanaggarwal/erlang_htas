@@ -28,7 +28,7 @@ start(_StartType, _StartArgs) ->
   AppConfig = eh_system_config:get_env(), 
   case eh_system_config:get_debug_mode(AppConfig) of
     true  ->
-      eh_event_handler:add_handler();
+      eh_event_handler:add_handler(AppConfig);
     false ->
       ok
   end, 

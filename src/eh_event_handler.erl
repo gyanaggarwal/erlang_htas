@@ -20,23 +20,32 @@
 
 -behavior(gen_event).
 
--export([add_handler/0, delete_handler/0]).
+-export([add_handler/1, delete_handler/0]).
 
 -export([init/1, handle_call/2, handle_info/2, handle_event/2, terminate/2, code_change/3]).
 
 -include("erlang_htas.hrl").
 
-add_handler() ->
-  eh_event:add_handler(?MODULE, []).
+add_handler(AppConfig) ->
+  eh_event:add_handler(?MODULE, AppConfig).
 
 delete_handler() ->
   eh_event:delete_handler(?MODULE, []).
 
-init(State) ->
-  {ok, State}.
+init(AppConfig) ->
+  File1 = case eh_system_config:get_file_repl_log(AppConfig) of
+            standard_io ->
+              standard_io;
+            FileName ->
+              {ok, File} = open(FileName),
+              File
+          end, 
+  {ok, File1}.
 
-terminate(_Args, _State) ->
-  ok.
+terminate(_Args, standard_io) ->
+  ok;
+terminate(_Args, File) ->
+  close(File).
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -47,11 +56,11 @@ handle_call(_Request, State) ->
 handle_info(_Info, State) ->
   {ok, State}.
 
-handle_event({data_state, {Module, Msg, #eh_data_state{timestamp=Timestamp, data_index_list=DIList}}}, State) ->
-  io:fwrite("[~p] ~p timestamp=~p, data_index_list=~p~n", [Module, Msg, Timestamp, DIList]),
-  {ok, State};
+handle_event({data_state, {Module, Msg, #eh_data_state{timestamp=Timestamp, data_index_list=DIList}}}, File) ->
+  io:fwrite(File, "[~p] ~p timestamp=~p, data_index_list=~p~n", [Module, Msg, Timestamp, DIList]),
+  {ok, File};
 
-handle_event({state, {Module, Msg, StateData=#eh_system_state{}}}, State) ->
+handle_event({state, {Module, Msg, StateData=#eh_system_state{}}}, File) ->
   NodeId = eh_system_util:get_node_name(StateData#eh_system_state.app_config#eh_app_config.node_id),
   Successor = eh_system_util:get_node_name(StateData#eh_system_state.successor),
   Timestamp = StateData#eh_system_state.timestamp,
@@ -60,24 +69,24 @@ handle_event({state, {Module, Msg, StateData=#eh_system_state{}}}, State) ->
   PreMsgData = list_msg_map(StateData#eh_system_state.pre_msg_data),
   MsgData = list_msg_map(StateData#eh_system_state.msg_data),
   RCMap = list_completed_map(StateData#eh_system_state.ring_completed_map),
-  io:fwrite("[~p] ~p node_status=~p, node_id=~p, repl_ring=~p, successor=~p, timestamp=~p, pre_msg_data=~p, msg_data=~p, ring_completed_map=~p~n~n",
+  io:fwrite(File, "[~p] ~p node_status=~p, node_id=~p, repl_ring=~p, successor=~p, timestamp=~p, pre_msg_data=~p, msg_data=~p, ring_completed_map=~p~n~n",
             [Module, Msg, NodeState, NodeId, ReplRing, Successor, Timestamp, PreMsgData, MsgData, RCMap]),
-  {ok, State};
+  {ok, File};
 
-handle_event({message, {Module, Msg, {UMsgKey, #eh_update_msg_data{node_id=NodeId}, CompletedSet}}}, State) ->
+handle_event({message, {Module, Msg, {UMsgKey, #eh_update_msg_data{node_id=NodeId}, CompletedSet}}}, File) ->
   RCSet = list_msg_set_value(CompletedSet),
-  io:fwrite("[~p] ~p message=~p, completed_set=~p~n",
+  io:fwrite(File, "[~p] ~p message=~p, completed_set=~p~n",
              [Module, Msg, list_msg(UMsgKey, NodeId), RCSet]),
-  {ok, State};
+  {ok, File};
 
-handle_event({message, {Module, Msg, UMsgKey}}, State) ->
-  io:fwrite("[~p] ~p message=~p~n",
+handle_event({message, {Module, Msg, UMsgKey}}, File) ->
+  io:fwrite(File, "[~p] ~p message=~p~n",
              [Module, Msg, list_msg_key(UMsgKey)]),
-  {ok, State};
+  {ok, File};
 
-handle_event({data, {Module, Msg, DataMsg, Data}}, State) ->
-  io:fwrite("[~p] ~p ~p=~p~n", [Module, Msg, DataMsg, Data]),
-  {ok, State}.
+handle_event({data, {Module, Msg, DataMsg, Data}}, File) ->
+  io:fwrite(File, "[~p] ~p ~p=~p~n", [Module, Msg, DataMsg, Data]),
+  {ok, File}.
 
 is_listable_value(Value) ->
   is_atom(Value) orelse is_integer(Value) orelse is_float(Value) orelse is_list(Value).
@@ -117,14 +126,19 @@ add_list(List, Acc) ->
   Acc++","++List.
 
 list_msg_set_value(Set) ->
-  sets:fold(fun(MsgKey, Acc) -> add_list(list_msg_key(MsgKey), Acc) end, [], Set).
+  eh_system_util:fold_set(fun(MsgKey, Acc) -> add_list(list_msg_key(MsgKey), Acc) end, [], Set).
 
 list_msg_map(Map) ->
-  maps:fold(fun(MsgKey, #eh_update_msg_data{node_id=NodeId}, Acc) -> add_list(list_msg(MsgKey, NodeId), Acc) end, [], Map).
+  eh_system_util:fold_map(fun(MsgKey, #eh_update_msg_data{node_id=NodeId}, Acc) -> add_list(list_msg(MsgKey, NodeId), Acc) end, [], Map).
 
 list_completed_map(Map) ->
-  maps:fold(fun(NodeId, Set, Acc) -> add_list(list_msg_set(Set, NodeId), Acc) end, [], Map).
+  eh_system_util:fold_map(fun(NodeId, Set, Acc) -> add_list(list_msg_set(Set, NodeId), Acc) end, [], Map).
 
+open(FileName) ->
+  file:open(FileName, [write]).
+
+close(File) ->
+  file:close(File).
 
 
 

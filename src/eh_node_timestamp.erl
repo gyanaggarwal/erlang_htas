@@ -35,16 +35,16 @@
 update_state_add_query_data(ObjectType, ObjectId, From, Ref, #eh_system_state{query_data=QueryData}=State) ->
   Key = {ObjectType, ObjectId},
   Value = {From, Ref},
-  List1 = case maps:find(Key, QueryData) of
+  List1 = case eh_system_util:find_map(Key, QueryData) of
             error      ->
               [Value];
             {ok, List} ->
               [Value | List]
           end,
-  State#eh_system_state{query_data=maps:put(Key, List1, QueryData)}.
+  State#eh_system_state{query_data=eh_system_util:add_map(Key, List1, QueryData)}.
 
 update_state_remove_query_data(ObjectType, ObjectId, #eh_system_state{query_data=QueryData}=State) ->
-  State#eh_system_state{query_data=maps:remove({ObjectType, ObjectId}, QueryData)}.
+  State#eh_system_state{query_data=eh_system_util:remove_map({ObjectType, ObjectId}, QueryData)}.
 
 update_state_client_reply(UpdateMsgKey, 
                           #eh_system_state{successor=Succ, ring_completed_map=RingCompletedMap, msg_data=MsgData, app_config=AppConfig}=State) ->
@@ -73,7 +73,7 @@ update_state_msg_data(NodeId,
                       CompletedSet,
                       #eh_system_state{msg_data=MsgData, ring_completed_map=RingCompletedMap}=State) ->
   RingCompletedMap1 = eh_ring_completed_map:add_completed_set(NodeId, CompletedSet, RingCompletedMap),
-  MsgData1 = sets:fold(fun(X, Acc) -> eh_system_util:remove_map(X, Acc) end, MsgData, eh_ring_completed_map:get_ring_completed_set(RingCompletedMap1)),
+  MsgData1 = eh_system_util:fold_set(fun(X, Acc) -> eh_system_util:remove_map(X, Acc) end, MsgData, eh_ring_completed_map:get_ring_completed_set(RingCompletedMap1)),
   State#eh_system_state{msg_data=MsgData1, ring_completed_map=RingCompletedMap1}.
 
 update_state_new_msg(?EH_PRED_PRE_UPDATE, 
@@ -119,7 +119,7 @@ valid_msg(ConflictResolveFun,
           MsgData,
           MsgData1,
           State) ->
-  case maps:find(UpdateMsgKey, MsgData) of
+  case eh_system_util:find_map(UpdateMsgKey, MsgData) of
     error                                        ->
        Value = case IsKeyFun(UpdateMsgKey, MsgData1) of
                  true  ->
