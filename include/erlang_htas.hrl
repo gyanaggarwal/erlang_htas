@@ -57,7 +57,6 @@
 -define(EH_DATA_SERVER,            eh_data_server).
 
 -record(eh_app_config,          {node_id                             :: atom(),
-                                 repl_ring                           :: list(),
                                  failure_detector                    :: atom(),
                                  repl_data_manager                   :: atom(),
                                  storage_data                        :: atom(),

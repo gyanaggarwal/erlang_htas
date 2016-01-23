@@ -21,8 +21,7 @@
 -export([get_random/1,
          get_random_nth/1,
          get_update_param/1,
-         get_node_change/1,
-         print_run_status/2]).
+         get_node_change/1]).
 
 -include("erlang_htas_test.hrl").
 
@@ -38,13 +37,11 @@ get_random_nth(List) ->
 get_update_param(ActiveNodes) ->
   {get_random_nth(ActiveNodes), get_random_nth(?OBJECT_TYPE), get_random_nth(?OBJECT_ID), [{get_random_nth(?COLUMNS), get_random_nth(?VALUES)}]}.
 
-get_node_change(#eh_run_state{valid_result=false}=State) ->
-  get_node_change(?NODE_NOCHANGE, State);
 get_node_change(#eh_run_state{test_runs=0, down_nodes=[]}=State) ->
   get_node_change(?NODE_NOCHANGE, State);
 get_node_change(#eh_run_state{test_runs=0}=State) ->
   get_node_change(?NODE_UP, State);
-get_node_change(#eh_run_state{active_nodes=ActiveNodes}=State) when length(ActiveNodes) =:= length(?NODE_LIST) ->
+get_node_change(#eh_run_state{initial_nodes=InitialNodes, active_nodes=ActiveNodes}=State) when length(ActiveNodes) =:= length(InitialNodes) ->
   get_node_change(?NODE_DOWN, State);
 get_node_change(#eh_run_state{active_nodes=ActiveNodes}=State) when length(ActiveNodes) =:= 1 ->
   get_node_change(?NODE_UP, State);
@@ -58,12 +55,4 @@ get_node_change(?NODE_DOWN, #eh_run_state{active_nodes=ActiveNodes}) ->
 get_node_change(?NODE_UP, #eh_run_state{down_nodes=DownNodes}) ->
   {?NODE_UP, get_random_nth(DownNodes)}.
 
-print(MsgTag, true, RunNum, ActiveNodes, DownNodes) ->
-  io:fwrite("run_num=~p succeeded [~p] active_nodes=~p down_nodes=~p~n", [RunNum, MsgTag, ActiveNodes, DownNodes]);
-print(MsgTag, false, RunNum, ActiveNodes, DownNodes) ->
-  io:fwrite("run_num=~p failed [~p] active_node=~p down_nodes=~p~n", [RunNum, MsgTag, ActiveNodes, DownNodes]).  
 
-print_run_status(MsgTag, #eh_run_state{valid_result=ValidResult, run_num=RunNum, active_nodes=ActiveNodes, down_nodes=DownNodes}) ->
-  AN = eh_system_util:make_list_to_string(fun erlang:atom_to_list/1, ActiveNodes),
-  DN = eh_system_util:make_list_to_string(fun erlang:atom_to_list/1, DownNodes),
-  print(MsgTag, ValidResult, RunNum, AN, DN).

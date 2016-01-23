@@ -19,7 +19,6 @@
 -module(eh_system_config).
 
 -export([get_env/0, 
-         get_repl_ring/1,
          get_node_id/1,
          get_failure_detector/1,
          get_repl_data_manager/1,
@@ -36,7 +35,6 @@
 
 -include("erlang_htas.hrl").
 
--define(REPL_RING,                 []).
 -define(FAILURE_DETECTOR,          eh_failure_detector_api).
 -define(REPL_DATA_MANAGER,         eh_repl_data_manager_api).
 -define(STORAGE_DATA,              eh_storage_data_api).
@@ -60,7 +58,6 @@ get_env() ->
   FileReplLog = eh_config:get_env(erlang_htas, file_repl_log, ?FILE_REPL_LOG),
 
   #eh_app_config{node_id                  = Node,
-                 repl_ring                = lists:sort(eh_config:get_env(erlang_htas, repl_ring,     ?REPL_RING)),
                  failure_detector         = eh_config:get_env(erlang_htas, failure_detector,         ?FAILURE_DETECTOR),
                  repl_data_manager        = eh_config:get_env(erlang_htas, repl_data_manager,        ?REPL_DATA_MANAGER),
                  storage_data             = eh_config:get_env(erlang_htas, storage_data,             ?STORAGE_DATA),
@@ -73,10 +70,6 @@ get_env() ->
                  sup_restart_intensity    = eh_config:get_env(erlang_htas, sup_restart_intensity,    ?SUP_RESTART_INTENSITY),
                  sup_restart_period       = eh_config:get_env(erlang_htas, sup_restart_period,       ?SUP_RESTART_PERIOD),
                  sup_child_shutdown       = eh_config:get_env(erlang_htas, sup_child_shutdown,       ?SUP_CHILD_SHUTDOWN)}.
-
--spec get_repl_ring(AppConfig :: #eh_app_config{}) -> list().
-get_repl_ring(#eh_app_config{repl_ring=ReplRing}) ->
-  ReplRing.
 
 -spec get_node_id(AppConfig :: #eh_app_config{}) -> atom().
 get_node_id(#eh_app_config{node_id=NodeId}) ->

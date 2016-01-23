@@ -23,10 +23,6 @@
 -define(ENTRY_SLEEP_TIME,      200).
 -define(NODE_SLEEP_TIME,       5000).
 
--define(NODE_LIST,             ['eh_n1@Gyanendras-MacBook-Pro', 
-                                'eh_n2@Gyanendras-MacBook-Pro',
-                                'eh_n5@Gyanendras-MacBook-Pro']).
-
 -define(NODE_NOCHANGE,         node_nochange).
 -define(NODE_UP,               node_up).
 -define(NODE_DOWN,             node_down).
@@ -40,9 +36,8 @@
  
 -define(VALUES,                lists:seq(1, 100)).
 
--record(eh_run_state,         {active_nodes             :: list(),
+-record(eh_run_state,         {initial_nodes            :: list(), 
+                               active_nodes             :: list(),
                                down_nodes=[]            :: list(),
-                               test_runs=0              :: non_neg_integer(),
-                               run_num=0                :: non_neg_integer(),
-                               curr_result              :: term(),
-                               valid_result=true        :: true | false}).
+                               test_runs=0              :: non_neg_integer()}).
+

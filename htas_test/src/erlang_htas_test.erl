@@ -18,41 +18,10 @@
 
 -module(erlang_htas_test).
 
--export([run/0, 
-         node_list/0,
-         data_entries/1,
+-export([data_entries/1,
          node_change/1]).
 
 -include("erlang_htas_test.hrl").
-
-run() ->
-  random:seed(erlang:phash2([node()]), erlang:monotonic_time(), erlang:unique_integer()),
-  State = #eh_run_state{active_nodes=?NODE_LIST, test_runs=eh_test_util:get_random(?TEST_RUNS)},
-  erlang_htas:setup_ring(?NODE_LIST),
-  run_test(State).
-
-run_test(#eh_run_state{valid_result=false, curr_result=CurrResult}) ->
-  CurrResult;
-run_test(#eh_run_state{test_runs=0, down_nodes=[]}) ->
-  ok;
-run_test(#eh_run_state{test_runs=TestRuns,
-                       run_num=RunNum}=State) ->
-  DataEntries = eh_test_util:get_random(?DATA_ENTRIES),
-  update(DataEntries, State),
-  State1 = State#eh_run_state{test_runs=max(0, TestRuns-1),
-                              run_num=RunNum+1},
-  State2 = validate_result(data_entries, State1),
-  {NodeChange, Node} = eh_test_util:get_node_change(State2),
-  State3 = make_node_change(NodeChange, Node, State2),
-  timer:sleep(2000),
-  State4 = validate_result(NodeChange, State3),
-  run_test(State4).
-
-validate_result(Tag, #eh_run_state{active_nodes=ActiveNodes}=State) ->
-  Result = erlang_htas:data_view(ActiveNodes),
-  State1 = State#eh_run_state{curr_result=Result, valid_result=eh_system_util:valid_result(Result)},
-  eh_test_util:print_run_status(Tag, State1),
-  State1.
 
 update(0, _State) ->
   ok;
@@ -72,18 +41,15 @@ make_node_change(?NODE_UP, Node, #eh_run_state{active_nodes=ActiveNodes, down_no
 make_node_change(_, _, State) ->
   State.
 
-node_list() ->
-  ?NODE_LIST.
-
 data_entries(NodeList) ->
   random:seed(erlang:phash2([node()]), erlang:monotonic_time(), erlang:unique_integer()),
-  State = #eh_run_state{active_nodes=NodeList},
+  State = #eh_run_state{initial_nodes=NodeList, active_nodes=NodeList},
   DataEntries = eh_test_util:get_random(?BULK_DATA_ENTRIES),
   update(DataEntries, State).
 
 node_change(NodeList) ->
   random:seed(erlang:phash2([node()]), erlang:monotonic_time(), erlang:unique_integer()),
-  State = #eh_run_state{active_nodes=NodeList, test_runs=eh_test_util:get_random(?TEST_RUNS)},
+  State = #eh_run_state{initial_nodes=NodeList, active_nodes=NodeList, test_runs=eh_test_util:get_random(?TEST_RUNS)},
   do_node_change(State).
 
 do_node_change(#eh_run_state{test_runs=0, down_nodes=[]}) ->
@@ -104,5 +70,6 @@ do_node_change(#eh_run_state{test_runs=TestRuns}=State) ->
   do_node_change(State2).
 
 print(NodeChange, Node, #eh_run_state{test_runs=TestRuns, active_nodes=ActiveNodes, down_nodes=DownNodes}) ->
-  io:fwrite("node_change=~p, node=~p, test_runs=~p, active_nodes=~p, down_nodes=~p~n", [NodeChange, eh_system_util:get_node_name(Node), TestRuns, length(ActiveNodes), length(DownNodes)]).
+  io:fwrite("node_change=~p, node=~p, test_runs=~p, active_nodes=~p, down_nodes=~p~n", 
+            [NodeChange, eh_system_util:get_node_name(Node), TestRuns, length(ActiveNodes), length(DownNodes)]).
  
