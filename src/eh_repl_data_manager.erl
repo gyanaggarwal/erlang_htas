@@ -22,11 +22,11 @@
 
 -callback update(NodeState :: atom(), Timestamp :: non_neg_integer(), Msg :: term()) -> ok.
 
--callback timestamp() -> {non_neg_integer(), list()}.
+-callback timestamp() -> {non_neg_integer(), term()}.
 
 -callback query(Msg :: term()) -> {atom(), term(), list()}.
 
--callback snapshot(Timestamp :: non_neg_integer(), DataIndex :: list()) -> queue:queue().
+-callback snapshot(Timestamp :: non_neg_integer(), Snapshot :: term()) -> queue:queue().
 
 -callback update_snapshot(Q0 :: queue:queue()) -> ok.
 

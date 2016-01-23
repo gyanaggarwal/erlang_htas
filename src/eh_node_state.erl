@@ -18,44 +18,59 @@
 
 -module(eh_node_state).
 
--export([pre_update_msg/1,
-         update_snapshot/1,
-         state/1,
+-export([update_state_msg/1,
+         update_state_snapshot/1,
+         update_state_ready/1,
+         update_state_transient/1,
          data_state/1,
          client_state/1,
+         msg_state/1,
          display_state/1]).
 
 -include("erlang_htas.hrl").
 
-pre_update_msg(#eh_node_status{update_snapshot=false}=NodeState) ->
-  NodeState#eh_node_status{pre_update_msg=true};
-pre_update_msg(#eh_node_status{update_snapshot=true}=NodeState) ->
-  NodeState#eh_node_status{pre_update_msg=true, state=?EH_STATE_NORMAL}.
+update_state(NodeStatus, State) ->
+  State#eh_system_state{node_status=NodeStatus}.
 
-update_snapshot(#eh_node_status{pre_update_msg=false}=NodeState) ->
-  NodeState#eh_node_status{update_snapshot=true};
-update_snapshot(#eh_node_status{pre_update_msg=true}=NodeState) ->
-  NodeState#eh_node_status{update_snapshot=true, state=?EH_STATE_NORMAL}.
-
-state(NodeState) ->
-  NodeState#eh_node_status{state=?EH_STATE_NORMAL}.
-
-data_state(#eh_node_status{state=?EH_STATE_NORMAL}) ->
-  ?EH_STATE_NORMAL;
-data_state(#eh_node_status{update_snapshot=true}) ->
-  ?EH_STATE_NORMAL;
-data_state(_) ->
-  ?EH_STATE_TRANSIENT.
-
-client_state(#eh_node_status{state=State}) ->
+update_state_msg(#eh_system_state{node_status=?EH_TRANSIENT}=State) ->
+  update_state(?EH_TRANSIENT_TU, State);
+update_state_msg(#eh_system_state{node_status=?EH_TRANSIENT_DU}=State) ->
+  update_state(?EH_READY, State);
+update_state_msg(State) ->
   State.
 
-display_state(#eh_node_status{state=?EH_STATE_TRANSIENT, update_snapshot=true}) ->
-  ?TRANSIENT_DU;
-display_state(#eh_node_status{state=?EH_STATE_TRANSIENT, pre_update_msg=true}) ->
-  ?TRANSIENT_TU;
-display_state(#eh_node_status{state=?EH_STATE_TRANSIENT}) ->
-  ?TRANSIENT;
-display_state(_) ->
-  ?READY.
+update_state_snapshot(#eh_system_state{node_status=?EH_TRANSIENT}=State) ->
+  update_state(?EH_TRANSIENT_DU, State);
+update_state_snapshot(#eh_system_state{node_status=?EH_TRANSIENT_TU}=State) ->
+  update_state(?EH_READY, State);
+update_state_snapshot(State) ->
+  State.
+
+update_state_ready(State) ->
+  update_state(?EH_READY, State).
+
+update_state_transient(State) ->
+  update_state(?EH_TRANSIENT, State).
+
+data_state(#eh_system_state{node_status=?EH_READY}) ->
+  ?EH_READY;
+data_state(#eh_system_state{node_status=?EH_TRANSIENT_DU}) ->
+  ?EH_READY;
+data_state(_) ->
+  ?EH_NOT_READY.
+
+client_state(#eh_system_state{node_status=?EH_READY}) ->
+  ?EH_READY;
+client_state(_) ->
+  ?EH_NOT_READY.
+
+msg_state(#eh_system_state{node_status=?EH_NOT_READY}) ->
+  ?EH_NOT_READY;
+msg_state(_) ->
+  ?EH_READY.
+
+display_state(#eh_system_state{node_status=NodeStatus}) ->
+  eh_system_util:display_atom_to_list(NodeStatus).
+
+
 

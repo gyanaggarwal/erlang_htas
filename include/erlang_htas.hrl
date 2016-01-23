@@ -47,12 +47,11 @@
 -define(EH_DATA_VIEW,              eh_data_view).
 -define(EH_CHECK_DATA,             eh_check_data).
 
--define(EH_STATE_NORMAL,           eh_state_normal).
--define(EH_STATE_TRANSIENT,        eh_state_transient).
--define(READY,                     ready).
--define(TRANSIENT,                 transient).
--define(TRANSIENT_DU,              transient_data_updated).
--define(TRANSIENT_TU,              transient_timestamp_updated).
+-define(EH_NOT_READY,              eh_not_ready).
+-define(EH_READY,                  eh_ready).
+-define(EH_TRANSIENT,              eh_transient).
+-define(EH_TRANSIENT_DU,           eh_transient_data_updated).
+-define(EH_TRANSIENT_TU,           eh_transient_timestamp_updated).
 
 -define(EH_SYSTEM_SERVER,          eh_system_server).
 -define(EH_DATA_SERVER,            eh_data_server).
@@ -98,11 +97,11 @@
                                  node_id                             :: atom(),
                                  reference                           :: term()}).
 
--record(eh_node_status,         {pre_update_msg=false                :: true | false,
-                                 update_snapshot=false               :: true | false,
-                                 state=?EH_STATE_TRANSIENT           :: ?EH_STATE_NORMAL | ?EH_STATE_TRANSIENT}).
-
--record(eh_system_state,        {node_status=#eh_node_status{}       :: #eh_node_status{},
+-record(eh_system_state,        {node_status=?EH_NOT_READY           :: ?EH_NOT_READY | 
+                                                                        ?EH_TRANSIENT |
+                                                                        ?EH_TRANSIENT_TU |
+                                                                        ?EH_TRANSIENT_DU |
+                                                                        ?EH_READY,
                                  timestamp=0                         :: non_neg_integer(),
                                  repl_ring=[]                        :: list(),
                                  successor                           :: atom(),

@@ -92,14 +92,14 @@ update_state_new_msg(?EH_PRED_UPDATE,
 
 update_state_timestamp(MsgTimestamp, 
                        #eh_system_state{timestamp=Timestamp}=State) ->
-  State#eh_system_state{timestamp=max(MsgTimestamp, Timestamp)}.
+  eh_node_state:update_state_msg(State#eh_system_state{timestamp=max(MsgTimestamp, Timestamp)}).
 
 valid_add_node_msg(Node, 
-                   #eh_system_state{repl_ring=ReplRing, node_status=NodeState, app_config=AppConfig}) ->
-  case {eh_node_state:client_state(NodeState), Node =:= eh_system_config:get_node_id(AppConfig), lists:member(Node, ReplRing)} of
-    {?EH_STATE_TRANSIENT, true, false} ->
+                   #eh_system_state{repl_ring=ReplRing, app_config=AppConfig}=State) ->
+  case {eh_node_state:client_state(State), Node =:= eh_system_config:get_node_id(AppConfig), lists:member(Node, ReplRing)} of
+    {?EH_NOT_READY, true, false} ->
       ?EH_VALID_FOR_NEW;
-    {?EH_STATE_NORMAL, false, false}   ->
+    {?EH_READY, false, false}   ->
       ?EH_VALID_FOR_EXISTING;
     {_, _, _}                          ->
       ?EH_INVALID_MSG

@@ -42,7 +42,8 @@
          is_key_map/2,
          exist_map_msg/3,
          valid_result/1, 
-         extract_nodes/2]).
+         extract_nodes/2,
+         display_atom_to_list/1]).
 
 -include("erlang_htas.hrl").
 
@@ -136,7 +137,9 @@ extract_nodes([{Node, _} | Rest], Acc) ->
 extract_nodes([], Acc) ->
   Acc.
 
-  
+display_atom_to_list(Atom) ->
+  ListAtom = atom_to_list(Atom),
+  lists:sublist(ListAtom, 4, length(ListAtom)). 
 
 
 

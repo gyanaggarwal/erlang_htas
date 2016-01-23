@@ -34,7 +34,7 @@
 update(NodeState, Timestamp, Msg) ->
   gen_server:call(?EH_DATA_SERVER, {?EH_UPDATE, {NodeState, Timestamp, Msg}}).
 
--spec timestamp() -> {non_neg_integer(), list()}.
+-spec timestamp() -> {non_neg_integer(), term()}.
 timestamp() ->
   gen_server:call(?EH_DATA_SERVER, ?EH_TIMESTAMP).
 
@@ -42,9 +42,9 @@ timestamp() ->
 query(Msg) ->
   gen_server:call(?EH_DATA_SERVER, {?EH_QUERY, Msg}).
 
--spec snapshot(Timestamp :: non_neg_integer(), DataIndex ::  list()) -> queue:queue().
-snapshot(Timestamp, DataIndex) ->
-  gen_server:call(?EH_DATA_SERVER, {?EH_SNAPSHOT, {Timestamp, DataIndex}}).
+-spec snapshot(Timestamp :: non_neg_integer(), Snapshot :: term()) -> queue:queue().
+snapshot(Timestamp, Snapshot) ->
+  gen_server:call(?EH_DATA_SERVER, {?EH_SNAPSHOT, {Timestamp, Snapshot}}).
 
 -spec update_snapshot(Q0 :: queue:queue()) -> ok.
 update_snapshot(Q0) ->
