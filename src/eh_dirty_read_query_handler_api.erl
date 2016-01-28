@@ -23,6 +23,7 @@
 -export([process/5]).
 
 process(ObjectType, ObjectId, From, Ref, State) ->
-  eh_query_handler:query(dirty_read, ObjectType, ObjectId, From, Ref, State).
+  eh_query_handler:query(dirty_read, ObjectType, ObjectId, From, Ref, State),
+  State.
 
 
